@@ -95,7 +95,15 @@ def search(
                 o for o in data.get("all_store_prices") or [] if o.get("availability") == want
             ]
         return data
-    return search_variants(db, q, retailer_id=retailer_id(store), in_stock=in_stock)
+
+    data = search_variants(db, q, retailer_id=retailer_id(store), in_stock=in_stock)
+    # Render free disks are ephemeral — after redeploy the catalog is empty.
+    # Automatically scrape live stores once so search still returns results.
+    if not store and not data.get("results"):
+        live_data = live_search(db, q)
+        if live_data.get("results"):
+            return live_data
+    return data
 
 
 @router.get("/search/suggest")

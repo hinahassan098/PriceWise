@@ -127,14 +127,23 @@ export async function searchProducts(
   if (opts?.store) params.set("store", opts.store);
   if (opts?.inStock === true) params.set("in_stock", "true");
   if (opts?.inStock === false) params.set("in_stock", "false");
-  return apiGet<{
+  const res = await fetch(`${API_BASE}/api/search?${params.toString()}`, {
+    next: { revalidate: 0 },
+    cache: "no-store",
+    // First search after a Render redeploy may scrape live stores into an empty DB.
+    signal: AbortSignal.timeout(90_000),
+  });
+  if (!res.ok) {
+    throw new Error(`API /api/search failed (${res.status})`);
+  }
+  return res.json() as Promise<{
     query: string;
     mode?: string;
     parsed: { name: string; size_label: string | null; pack_count: number | null };
     results: SearchResult[];
     all_store_prices?: StoreOffer[];
     stores_queried?: string[];
-  }>(`/api/search?${params.toString()}`);
+  }>;
 }
 
 export async function suggestProducts(q: string) {
