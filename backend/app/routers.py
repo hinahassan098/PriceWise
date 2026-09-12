@@ -59,11 +59,16 @@ def search(
     q: str = Query(..., min_length=1),
     store: str | None = None,
     in_stock: bool | None = None,
-    live: bool = Query(True),
+    live: bool = Query(False),
     db: Session = Depends(get_db),
 ) -> dict:
     if live and not store:
         data = live_search(db, q)
+        if not data.get("results"):
+            # Live scrapes can time out on free hosts; fall back to catalog data.
+            data = search_variants(db, q, retailer_id=None, in_stock=in_stock)
+            data["mode"] = "catalog_fallback"
+            return data
         if in_stock is not None:
             want = "in_stock" if in_stock else "out_of_stock"
             filtered_results = []

@@ -60,14 +60,30 @@ def search_variants(
         card["score"] = round(score, 2)
         results.append(card)
 
+    flat_offers = []
+    for row in results:
+        for offer in row.get("offers") or []:
+            flat_offers.append(
+                {
+                    **offer,
+                    "brand": row.get("brand"),
+                    "canonical_name": row["name"],
+                    "size_label": row["size_label"],
+                    "variant_id": row.get("variant_id"),
+                }
+            )
+    flat_offers.sort(key=lambda o: (0 if o["availability"] == "in_stock" else 1, o["price"]))
+
     return {
         "query": query,
+        "mode": "catalog",
         "parsed": {
             "name": parsed.remainder,
             "size_label": parsed.label if q_has_size else None,
             "pack_count": parsed.pack_count if q_has_size else None,
         },
         "results": results,
+        "all_store_prices": flat_offers,
     }
 
 

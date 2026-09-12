@@ -106,6 +106,9 @@ def live_search(db: Session, query: str, *, persist: bool = True, limit_per_stor
     collectors = get_live_collectors()
     gathered: list[CollectedProduct] = []
     store_errors: dict[str, str] = {}
+    # Keep Render/SSR requests under platform timeouts.
+    per_store_timeout_s = 8
+    overall_timeout_s = 20
 
     def _run(retailer_id: str, collector):
         try:
@@ -114,12 +117,25 @@ def live_search(db: Session, query: str, *, persist: bool = True, limit_per_stor
             return retailer_id, [], str(exc)
 
     with ThreadPoolExecutor(max_workers=max(2, len(collectors))) as pool:
-        futures = [pool.submit(_run, rid, col) for rid, col in collectors.items()]
-        for fut in as_completed(futures):
-            rid, items, err = fut.result()
-            if err:
-                store_errors[rid] = err
-            gathered.extend(item for item in items if item.price and item.price > 0)
+        futures = {
+            pool.submit(_run, rid, col): rid for rid, col in collectors.items()
+        }
+        try:
+            for fut in as_completed(futures, timeout=overall_timeout_s):
+                try:
+                    rid, items, err = fut.result(timeout=per_store_timeout_s)
+                except Exception as exc:  # noqa: BLE001
+                    rid = futures[fut]
+                    store_errors[rid] = str(exc)
+                    continue
+                if err:
+                    store_errors[rid] = err
+                gathered.extend(item for item in items if item.price and item.price > 0)
+        except TimeoutError:
+            for fut, rid in futures.items():
+                if not fut.done():
+                    fut.cancel()
+                    store_errors.setdefault(rid, "timed out")
 
     # Persist so comparison pages and matching improve over time.
     variant_ids: dict[str, int] = {}

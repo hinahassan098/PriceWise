@@ -102,6 +102,7 @@ async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     next: { revalidate: 0 },
     cache: "no-store",
+    signal: AbortSignal.timeout(55_000),
   });
   if (!res.ok) {
     throw new Error(`API ${path} failed (${res.status})`);
@@ -118,9 +119,11 @@ export function formatPkr(amount: number): string {
 
 export async function searchProducts(
   q: string,
-  opts?: { store?: string; inStock?: boolean },
+  opts?: { store?: string; inStock?: boolean; live?: boolean },
 ) {
   const params = new URLSearchParams({ q });
+  // Default to catalog search on Render — live multi-store scrape often exceeds timeouts.
+  params.set("live", opts?.live === true ? "true" : "false");
   if (opts?.store) params.set("store", opts.store);
   if (opts?.inStock === true) params.set("in_stock", "true");
   if (opts?.inStock === false) params.set("in_stock", "false");
