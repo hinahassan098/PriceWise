@@ -1,0 +1,283 @@
+{
+  "generated_at": "2026-09-09",
+  "mvp_city": "Karachi",
+  "pilot_retailer_id": "springs",
+  "collection_policy": {
+    "prefer": [
+      "official_api",
+      "documented_public_json",
+      "partnership_feed"
+    ],
+    "allow_later": [
+      "html_parse_where_robots_allow"
+    ],
+    "forbid": [
+      "bypass_waf_or_captcha",
+      "login_required_endpoints",
+      "admin_or_internal_hosts",
+      "robots_disallowed_paths",
+      "personal_data"
+    ]
+  },
+  "retailers": [
+    {
+      "id": "springs",
+      "name": "Springs",
+      "slug": "springs",
+      "website_url": "https://springs.com.pk",
+      "cities": [
+        "Karachi",
+        "Nationwide shipping"
+      ],
+      "platform": "Shopify",
+      "scraping_method": "shopify_json",
+      "status": "connected",
+      "public_api": true,
+      "barcode_available": true,
+      "robots_url": "https://springs.com.pk/robots.txt",
+      "sitemap_url": "https://springs.com.pk/sitemap.xml",
+      "terms_url": "https://springs.com.pk/policies/terms-of-service",
+      "notes": [
+        "Documented read-only catalog JSON in /agents.md",
+        "SKU field often contains EAN/UPC barcodes",
+        "UCP/MCP exists for agent commerce; checkout still needs human approval",
+        "ToS restrict commercial reproduction of website content — store facts + outbound URLs, request written permission before republishing images/copy"
+      ],
+      "endpoints": {
+        "products_json": "https://springs.com.pk/products.json",
+        "product_json": "https://springs.com.pk/products/{handle}.json",
+        "collection_json": "https://springs.com.pk/collections/{handle}/products.json",
+        "search": "https://springs.com.pk/search?q={query}&type=product",
+        "agents": "https://springs.com.pk/agents.md",
+        "ucp": "https://springs.com.pk/.well-known/ucp"
+      },
+      "integration_risk": "low"
+    },
+    {
+      "id": "alfatah",
+      "name": "Al-Fatah",
+      "slug": "alfatah",
+      "website_url": "https://alfatah.pk",
+      "cities": [
+        "Lahore",
+        "Karachi",
+        "Nationwide shipping"
+      ],
+      "platform": "Shopify",
+      "scraping_method": "shopify_json",
+      "status": "connected",
+      "public_api": true,
+      "barcode_available": true,
+      "robots_url": "https://alfatah.pk/robots.txt",
+      "sitemap_url": "https://alfatah.pk/sitemap.xml",
+      "terms_url": "https://alfatah.pk/policies/terms-of-service",
+      "notes": [
+        "Shopify public products.json and search/suggest.json",
+        "Added for multi-store live price comparison"
+      ],
+      "endpoints": {
+        "products_json": "https://alfatah.pk/products.json",
+        "search": "https://alfatah.pk/search/suggest.json"
+      },
+      "integration_risk": "low"
+    },
+    {
+      "id": "green-valley",
+      "name": "Green Valley",
+      "slug": "green-valley",
+      "website_url": "https://greenvalley.pk",
+      "cities": [
+        "Rawalpindi",
+        "Islamabad",
+        "Nationwide shipping"
+      ],
+      "platform": "Shopify",
+      "scraping_method": "shopify_json",
+      "status": "connected",
+      "public_api": true,
+      "barcode_available": true,
+      "robots_url": "https://greenvalley.pk/robots.txt",
+      "sitemap_url": "https://greenvalley.pk/sitemap.xml",
+      "terms_url": "https://greenvalley.pk/policies/terms-of-service",
+      "notes": [
+        "Shopify public products.json and suggest.json"
+      ],
+      "endpoints": {
+        "products_json": "https://greenvalley.pk/products.json",
+        "search": "https://greenvalley.pk/search/suggest.json"
+      },
+      "integration_risk": "low"
+    },
+    {
+      "id": "al-madina",
+      "name": "Al-Madina",
+      "slug": "al-madina",
+      "website_url": "https://www.almadinastore.pk",
+      "cities": [
+        "Pakistan"
+      ],
+      "platform": "Shopify",
+      "scraping_method": "shopify_json",
+      "status": "connected",
+      "public_api": true,
+      "barcode_available": true,
+      "robots_url": "https://www.almadinastore.pk/robots.txt",
+      "sitemap_url": "https://www.almadinastore.pk/sitemap.xml",
+      "terms_url": "https://www.almadinastore.pk/policies/terms-of-service",
+      "notes": [
+        "Shopify public products.json",
+        "Specialty / imported catalog — weaker overlap with mass-market grocery SKUs"
+      ],
+      "endpoints": {
+        "products_json": "https://www.almadinastore.pk/products.json",
+        "search": "https://www.almadinastore.pk/search/suggest.json"
+      },
+      "integration_risk": "low"
+    },
+    {
+      "id": "snapcart",
+      "name": "Snapcart",
+      "slug": "snapcart",
+      "website_url": "https://snapcart.pk",
+      "cities": [
+        "Pakistan",
+        "Nationwide shipping"
+      ],
+      "platform": "Shopify",
+      "scraping_method": "shopify_json",
+      "status": "connected",
+      "public_api": true,
+      "barcode_available": true,
+      "robots_url": "https://snapcart.pk/robots.txt",
+      "sitemap_url": "https://snapcart.pk/sitemap.xml",
+      "terms_url": "https://snapcart.pk/policies/terms-of-service",
+      "notes": [
+        "Shopify public products.json and suggest.json"
+      ],
+      "endpoints": {
+        "products_json": "https://snapcart.pk/products.json",
+        "search": "https://snapcart.pk/search/suggest.json"
+      },
+      "integration_risk": "low"
+    },
+    {
+      "id": "spar",
+      "name": "SPAR",
+      "slug": "spar",
+      "website_url": "https://store.spar.pk",
+      "cities": [
+        "Karachi"
+      ],
+      "platform": "Blink",
+      "scraping_method": "html_plus_sitemap",
+      "status": "connected",
+      "public_api": false,
+      "barcode_available": "unknown",
+      "robots_url": "https://store.spar.pk/robots.txt",
+      "sitemap_url": "https://store.spar.pk/sitemap.xml",
+      "terms_url": "https://www.spar.pk/spar-store-privacy-policy/",
+      "notes": [
+        "Connected via product sitemap + product page JSON-LD",
+        "No /api/* calls; robots restrictions respected"
+      ],
+      "endpoints": {
+        "sitemap": "https://store.spar.pk/sitemap.xml",
+        "store": "https://store.spar.pk/"
+      },
+      "integration_risk": "medium"
+    },
+    {
+      "id": "nice-mart",
+      "name": "Nice Mart",
+      "slug": "nice-mart",
+      "website_url": "https://www.nicemart.pk",
+      "cities": ["Karachi"],
+      "platform": "Blink",
+      "scraping_method": "html_plus_sitemap",
+      "status": "connected",
+      "public_api": false,
+      "barcode_available": "unknown",
+      "robots_url": "https://www.nicemart.pk/robots.txt",
+      "sitemap_url": "https://www.nicemart.pk/sitemap.xml",
+      "terms_url": "https://www.nicemart.pk/",
+      "notes": [
+        "Connected via product sitemap + product page JSON-LD",
+        "No /api/* calls; robots restrictions respected"
+      ],
+      "endpoints": {
+        "sitemap": "https://www.nicemart.pk/sitemap.xml",
+        "store": "https://www.nicemart.pk/"
+      },
+      "integration_risk": "medium"
+    },
+    {
+      "id": "naheed",
+      "name": "Naheed",
+      "slug": "naheed",
+      "website_url": "https://www.naheed.pk",
+      "cities": ["Karachi", "Lahore", "Islamabad"],
+      "platform": "Magento",
+      "scraping_method": "html_plus_sitemap",
+      "status": "connected",
+      "public_api": false,
+      "barcode_available": "unknown",
+      "robots_url": "https://www.naheed.pk/robots.txt",
+      "sitemap_url": "https://www.naheed.pk/pub/media/sitemap.xml",
+      "terms_url": "https://www.naheed.pk",
+      "notes": [
+        "Connected via public sitemap + SEO product pages",
+        "Does not use robots-disallowed /catalogsearch/ or /catalog/product/view/"
+      ],
+      "endpoints": {
+        "sitemap": "https://www.naheed.pk/pub/media/sitemap.xml"
+      },
+      "integration_risk": "medium"
+    },
+    {
+      "id": "metro",
+      "name": "Metro",
+      "slug": "metro",
+      "website_url": "https://www.metro-online.pk",
+      "cities": ["Karachi", "Lahore", "Islamabad", "Faisalabad", "Multan"],
+      "platform": "Next.js",
+      "scraping_method": "next_data_plus_sitemap",
+      "status": "connected",
+      "public_api": false,
+      "barcode_available": "unknown",
+      "robots_url": "https://www.metro-online.pk/robots.txt",
+      "sitemap_url": "https://www.metro-online.pk/sitemap.xml",
+      "terms_url": "https://www.metro-online.pk/termscondition",
+      "notes": [
+        "Connected via public sitemap + product page Next.js data",
+        "Website prices are guide prices; billed price may differ at pick time",
+        "Does not use admin.metro-online.pk"
+      ],
+      "endpoints": {
+        "sitemap": "https://www.metro-online.pk/sitemap.xml",
+        "home": "https://www.metro-online.pk/home"
+      },
+      "integration_risk": "medium"
+    }
+  ],
+  "later_retailers": [
+    { "id": "chase-up", "name": "Chase Up" },
+    { "id": "panda", "name": "Panda" },
+    { "id": "csd", "name": "CSD" },
+    {
+      "id": "imtiaz",
+      "name": "Imtiaz",
+      "notes": [
+        "Homepage is a loading SPA; catalog likely needs JS",
+        "No public product JSON found"
+      ]
+    },
+    {
+      "id": "carrefour",
+      "name": "Carrefour",
+      "notes": [
+        "Storefront returned empty/blocked responses from this environment",
+        "Prices are store-location specific"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+hina.db
+hina.db-wal
+hina.db-shm
+.pytest_cache/
+node_modules/
+.next/
+out/
+web/.env.local
+backend/.env
