@@ -59,50 +59,53 @@ def search(
     q: str = Query(..., min_length=1),
     store: str | None = None,
     in_stock: bool | None = None,
-    live: bool = Query(False),
+    live: bool = Query(True),
     db: Session = Depends(get_db),
 ) -> dict:
+    def _apply_stock(data: dict) -> dict:
+        if in_stock is None:
+            return data
+        want = "in_stock" if in_stock else "out_of_stock"
+        filtered_results = []
+        for row in data["results"]:
+            offers = [o for o in (row.get("offers") or []) if o.get("availability") == want]
+            if not offers:
+                continue
+            offers.sort(key=lambda o: o["price"])
+            cheapest = offers[0]
+            row["offers"] = offers
+            row["store_count"] = len(offers)
+            row["cheapest"] = {
+                "retailer_id": cheapest["retailer_id"],
+                "retailer_name": cheapest["retailer_name"],
+                "price": cheapest["price"],
+                "availability": cheapest["availability"],
+                "url": cheapest["url"],
+            }
+            row["unit_price"] = cheapest.get("unit_price")
+            row["freshness"] = cheapest.get("freshness")
+            filtered_results.append(row)
+        data["results"] = filtered_results
+        data["all_store_prices"] = [
+            o for o in data.get("all_store_prices") or [] if o.get("availability") == want
+        ]
+        return data
+
     if live and not store:
         data = live_search(db, q)
-        if not data.get("results"):
-            # Live scrapes can time out on free hosts; fall back to catalog data.
-            data = search_variants(db, q, retailer_id=None, in_stock=in_stock)
-            data["mode"] = "catalog_fallback"
-            return data
-        if in_stock is not None:
-            want = "in_stock" if in_stock else "out_of_stock"
-            filtered_results = []
-            for row in data["results"]:
-                offers = [o for o in (row.get("offers") or []) if o.get("availability") == want]
-                if not offers:
-                    continue
-                offers.sort(key=lambda o: o["price"])
-                cheapest = offers[0]
-                row["offers"] = offers
-                row["store_count"] = len(offers)
-                row["cheapest"] = {
-                    "retailer_id": cheapest["retailer_id"],
-                    "retailer_name": cheapest["retailer_name"],
-                    "price": cheapest["price"],
-                    "availability": cheapest["availability"],
-                    "url": cheapest["url"],
-                }
-                row["unit_price"] = cheapest.get("unit_price")
-                row["freshness"] = cheapest.get("freshness")
-                filtered_results.append(row)
-            data["results"] = filtered_results
-            data["all_store_prices"] = [
-                o for o in data.get("all_store_prices") or [] if o.get("availability") == want
-            ]
+        if data.get("results"):
+            return _apply_stock(data)
+        # Live scrapes can time out on free hosts; fall back to catalog data.
+        data = search_variants(db, q, retailer_id=None, in_stock=in_stock)
+        data["mode"] = "catalog_fallback"
         return data
 
     data = search_variants(db, q, retailer_id=retailer_id(store), in_stock=in_stock)
     # Render free disks are ephemeral — after redeploy the catalog is empty.
-    # Automatically scrape live stores once so search still returns results.
     if not store and not data.get("results"):
         live_data = live_search(db, q)
         if live_data.get("results"):
-            return live_data
+            return _apply_stock(live_data)
     return data
 
 

@@ -122,16 +122,15 @@ export async function searchProducts(
   opts?: { store?: string; inStock?: boolean; live?: boolean },
 ) {
   const params = new URLSearchParams({ q });
-  // Default to catalog search on Render — live multi-store scrape often exceeds timeouts.
-  params.set("live", opts?.live === true ? "true" : "false");
+  // Live multi-store by default; backend enforces a short scrape budget.
+  params.set("live", opts?.live === false ? "false" : "true");
   if (opts?.store) params.set("store", opts.store);
   if (opts?.inStock === true) params.set("in_stock", "true");
   if (opts?.inStock === false) params.set("in_stock", "false");
   const res = await fetch(`${API_BASE}/api/search?${params.toString()}`, {
     next: { revalidate: 0 },
     cache: "no-store",
-    // First search after a Render redeploy may scrape live stores into an empty DB.
-    signal: AbortSignal.timeout(90_000),
+    signal: AbortSignal.timeout(60_000),
   });
   if (!res.ok) {
     throw new Error(`API /api/search failed (${res.status})`);
