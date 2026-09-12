@@ -12,6 +12,30 @@ type Props = {
   }>;
 };
 
+function filterResultsByStock(
+  items: SearchResult[],
+  keep: (availability: string) => boolean,
+): SearchResult[] {
+  return items.flatMap((item) => {
+    const offers = (item.offers || []).filter((o) => keep(o.availability));
+    if (!offers.length) return [];
+    const cheapestOffer = [...offers].sort((a, b) => a.price - b.price)[0];
+    const next: SearchResult = {
+      ...item,
+      offers,
+      store_count: offers.length,
+      cheapest: {
+        retailer_id: cheapestOffer.retailer_id,
+        retailer_name: cheapestOffer.retailer_name,
+        price: cheapestOffer.price,
+        availability: cheapestOffer.availability,
+        url: cheapestOffer.url,
+      },
+    };
+    return [next];
+  });
+}
+
 function ProductCard({ item }: { item: SearchResult }) {
   const offers = item.offers || [];
   const href = item.variant_id ? `/product/${item.variant_id}` : item.cheapest.url;
@@ -147,46 +171,16 @@ export default async function SearchPage({ searchParams }: Props) {
   // Harden stock filter in the UI so OOS rows never leak through.
   if (stock === true) {
     flat = flat.filter((o) => o.availability === "in_stock");
-    productResults = productResults
-      .map((item) => {
-        const offers = (item.offers || []).filter((o) => o.availability === "in_stock");
-        if (!offers.length) return null;
-        const cheapestOffer = [...offers].sort((a, b) => a.price - b.price)[0];
-        return {
-          ...item,
-          offers,
-          store_count: offers.length,
-          cheapest: {
-            retailer_id: cheapestOffer.retailer_id,
-            retailer_name: cheapestOffer.retailer_name,
-            price: cheapestOffer.price,
-            availability: cheapestOffer.availability,
-            url: cheapestOffer.url,
-          },
-        };
-      })
-      .filter((item): item is SearchResult => item !== null);
+    productResults = filterResultsByStock(
+      productResults,
+      (availability) => availability === "in_stock",
+    );
   } else if (stock === false) {
     flat = flat.filter((o) => o.availability !== "in_stock");
-    productResults = productResults
-      .map((item) => {
-        const offers = (item.offers || []).filter((o) => o.availability !== "in_stock");
-        if (!offers.length) return null;
-        const cheapestOffer = [...offers].sort((a, b) => a.price - b.price)[0];
-        return {
-          ...item,
-          offers,
-          store_count: offers.length,
-          cheapest: {
-            retailer_id: cheapestOffer.retailer_id,
-            retailer_name: cheapestOffer.retailer_name,
-            price: cheapestOffer.price,
-            availability: cheapestOffer.availability,
-            url: cheapestOffer.url,
-          },
-        };
-      })
-      .filter((item): item is SearchResult => item !== null);
+    productResults = filterResultsByStock(
+      productResults,
+      (availability) => availability !== "in_stock",
+    );
   }
 
   return (
