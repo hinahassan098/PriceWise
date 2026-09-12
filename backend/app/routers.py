@@ -92,7 +92,8 @@ def search(
         return data
 
     if live and not store:
-        data = live_search(db, q)
+        # Skip ingest during request so search stays under Render timeouts.
+        data = live_search(db, q, persist=False)
         if data.get("results"):
             return _apply_stock(data)
         # Live scrapes can time out on free hosts; fall back to catalog data.
