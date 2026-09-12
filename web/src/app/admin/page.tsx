@@ -23,7 +23,7 @@ export default async function AdminPage() {
 
       {!stats ? (
         <p className="text-[var(--danger)]">
-          API unreachable. Start the backend on port 8020.
+          API unreachable. Check that the backend is running.
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">

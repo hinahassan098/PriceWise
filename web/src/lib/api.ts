@@ -1,4 +1,8 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://pricewise-api-dauj.onrender.com"
+    : "http://127.0.0.1:8000");
 
 export type Freshness = {
   level: "live" | "today" | "stale" | "unknown";

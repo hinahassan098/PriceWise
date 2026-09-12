@@ -251,7 +251,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
           {error ? (
             <p className="rounded-2xl border border-[var(--danger)] bg-white/70 px-4 py-3 text-[var(--danger)]">
-              {error}. Is the API running on port 8020?
+              {error}. Check that the API is reachable.
             </p>
           ) : null}
 
