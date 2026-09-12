@@ -88,6 +88,19 @@ LIVE_COLLECTORS = {
     "metro": MetroNextCollector,
 }
 
+# Fast JSON-only storefronts for interactive search (HTML scrapers are too slow on Render).
+FAST_LIVE_COLLECTORS = {
+    "springs": SpringsCollector,
+    "alfatah": AlfatahCollector,
+    "green-valley": GreenValleyCollector,
+    "al-madina": AlMadinaCollector,
+    "snapcart": SnapcartCollector,
+}
+
 
 def get_live_collectors() -> dict:
     return {key: cls() for key, cls in LIVE_COLLECTORS.items()}
+
+
+def get_fast_live_collectors() -> dict:
+    return {key: cls() for key, cls in FAST_LIVE_COLLECTORS.items()}

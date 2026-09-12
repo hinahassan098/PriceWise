@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from collections.abc import Iterator
 
 import httpx
@@ -87,7 +86,7 @@ class ShopifyCollector:
         self.search_queries = search_queries or DEFAULT_QUERIES
         self.collection_handles = collection_handles or []
         self.client = client or httpx.Client(
-            timeout=30.0,
+            timeout=httpx.Timeout(5.0, connect=3.0),
             headers={"User-Agent": settings.user_agent, "Accept": "application/json"},
             follow_redirects=True,
         )
@@ -210,7 +209,6 @@ class ShopifyCollector:
         return self._get_params(url)
 
     def _get_params(self, url: str, params: dict | None = None) -> dict | list | None:
-        time.sleep(settings.request_delay_seconds)
         response = self.client.get(url, params=params)
         if response.status_code == 404:
             return None

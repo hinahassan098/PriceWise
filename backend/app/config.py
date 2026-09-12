@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'hina.db').as_posix()}"
     cors_origins: str = (
         "http://localhost:3000,http://localhost:3020,"
-        "https://pricewise-78on.onrender.com"
+        "https://pricewise-78on.onrender.com,"
+        "https://pricewise-web.onrender.com"
     )
     user_agent: str = "PriceWise/0.1 (grocery comparison; local research collector)"
     springs_max_products: int = 900

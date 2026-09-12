@@ -6,7 +6,7 @@ from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
 
 from app.collectors.base import CollectedProduct
-from app.collectors.registry import get_live_collectors
+from app.collectors.registry import get_fast_live_collectors
 from app.matching.normalize import normalize_name
 from app.matching.units import PACK_RE, SIZE_RE, parse_size
 from app.services.freshness import freshness, unit_price
@@ -101,13 +101,13 @@ def _offer_dict(item: CollectedProduct, variant_id: int | None = None) -> dict:
     }
 
 
-def live_search(db: Session, query: str, *, persist: bool = True, limit_per_store: int = 8) -> dict:
-    """Query all live Pakistani storefronts and group offers by product."""
-    collectors = get_live_collectors()
+def live_search(db: Session, query: str, *, persist: bool = True, limit_per_store: int = 10) -> dict:
+    """Query fast Pakistani Shopify storefronts and group offers by product."""
+    collectors = get_fast_live_collectors()
     gathered: list[CollectedProduct] = []
     store_errors: dict[str, str] = {}
-    # Keep Render/SSR requests under platform timeouts.
-    overall_timeout_s = 15
+    # Keep interactive search well under Render request limits.
+    overall_timeout_s = 8
 
     def _run(retailer_id: str, collector):
         try:
@@ -115,7 +115,7 @@ def live_search(db: Session, query: str, *, persist: bool = True, limit_per_stor
         except Exception as exc:  # noqa: BLE001
             return retailer_id, [], str(exc)
 
-    pool = ThreadPoolExecutor(max_workers=max(2, len(collectors)))
+    pool = ThreadPoolExecutor(max_workers=len(collectors))
     futures = {pool.submit(_run, rid, col): rid for rid, col in collectors.items()}
     try:
         for fut in as_completed(futures, timeout=overall_timeout_s):
@@ -133,7 +133,6 @@ def live_search(db: Session, query: str, *, persist: bool = True, limit_per_stor
             if not fut.done():
                 store_errors.setdefault(rid, "timed out")
     finally:
-        # Do not wait for slow stores — that was making non-Lays searches hang for 60s+.
         pool.shutdown(wait=False, cancel_futures=True)
 
     # Persist so comparison pages and matching improve over time.

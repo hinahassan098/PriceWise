@@ -130,7 +130,7 @@ export async function searchProducts(
   const res = await fetch(`${API_BASE}/api/search?${params.toString()}`, {
     next: { revalidate: 0 },
     cache: "no-store",
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(45_000),
   });
   if (!res.ok) {
     throw new Error(`API /api/search failed (${res.status})`);
