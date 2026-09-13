@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { SearchBox } from "@/components/SearchBox";
 
@@ -36,7 +37,17 @@ export default function HomePage() {
           }}
         />
         <div className="hero-content max-w-3xl">
-          <p className="brand-mark mb-4 text-5xl md:text-7xl">PriceWise</p>
+          <Image
+            src="/logo-mark.png"
+            alt="PriceWise"
+            width={96}
+            height={96}
+            priority
+            className="mb-5 h-16 w-16 rounded-full md:h-20 md:w-20"
+          />
+          <p className="brand-mark mb-3 text-5xl text-[var(--hero-fg)] md:text-7xl">
+            PriceWise
+          </p>
           <h1 className="max-w-xl text-2xl font-normal leading-snug text-[var(--hero-fg)] md:text-3xl">
             Compare prices across Pakistan
           </h1>
@@ -68,7 +79,9 @@ export default function HomePage() {
       </section>
 
       <section className="mt-14" style={{ animation: "rise-in 0.7s ease-out 0.12s both" }}>
-        <h2 className="brand-mark text-3xl text-[var(--accent-deep)]">Popular categories</h2>
+        <h2 className="brand-mark text-3xl text-[var(--accent-deep)]">
+          Popular categories
+        </h2>
         <p className="mt-2 text-[var(--ink-soft)]">
           Packaged grocery first. Fresh produce and loose items come later.
         </p>

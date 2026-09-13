@@ -18,6 +18,13 @@ export const metadata: Metadata = {
   title: "PriceWise — Compare grocery prices in Pakistan",
   description:
     "Search a product, compare verified prices across Pakistani retailers, and buy from the cheapest store.",
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/favicon.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/icon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

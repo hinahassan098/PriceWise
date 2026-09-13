@@ -54,9 +54,16 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F1E8" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FAF2F5" />
       <View style={styles.header}>
-        <Text style={styles.brand}>PriceWise</Text>
+        <View style={styles.brandRow}>
+          <Image
+            source={require("./assets/icon.png")}
+            style={styles.logo}
+            accessibilityLabel="PriceWise"
+          />
+          <Text style={styles.brand}>PriceWise</Text>
+        </View>
         <Text style={styles.tagline}>Compare grocery prices across Pakistan</Text>
       </View>
 
@@ -166,15 +173,21 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F7F1E8" },
+  safe: { flex: 1, backgroundColor: "#FAF2F5" },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logo: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+  },
   brand: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: "700",
-    color: "#5C1A22",
+    color: "#5C1228",
     letterSpacing: -0.5,
   },
-  tagline: { marginTop: 4, color: "#8A7F72", fontSize: 14 },
+  tagline: { marginTop: 4, color: "#7A4D5C", fontSize: 14 },
   searchRow: {
     flexDirection: "row",
     gap: 8,
