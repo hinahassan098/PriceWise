@@ -1,0 +1,36 @@
+# PriceWise on Render
+# Apply via Dashboard → New → Blueprint, or keep using existing services
+# and set the env vars listed below manually.
+
+services:
+  - type: web
+    name: pricewise-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://pricewise-78on.onrender.com
+
+  - type: web
+    name: pricewise-web
+    runtime: node
+    plan: free
+    rootDir: web
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://pricewise-api-dauj.onrender.com
+      - key: ADMIN_API_KEY
+        fromService:
+          type: web
+          name: pricewise-api
+          envVarKey: ADMIN_API_KEY
