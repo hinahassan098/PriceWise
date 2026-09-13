@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.auth import require_admin_key
 from app.models import CollectionJob, MatchReview, Price, Product, ProductVariant, Retailer, RetailerProduct
 from app.services.collect import run_all_collections, run_retailer_collection, run_springs_collection
 from app.services.comparison import comparison, history
@@ -199,13 +200,21 @@ def admin_matching(db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/admin/collect/springs")
-def collect_springs(max_products: int | None = None, db: Session = Depends(get_db)) -> dict:
+def collect_springs(
+    max_products: int | None = None,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
+) -> dict:
     job = run_springs_collection(db, max_products=max_products)
     return {"job_id": job.id, "status": job.status, "items_upserted": job.items_upserted}
 
 
 @router.post("/admin/collect/all")
-def collect_all(max_products: int | None = 100, db: Session = Depends(get_db)) -> dict:
+def collect_all(
+    max_products: int | None = 100,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
+) -> dict:
     return {"jobs": run_all_collections(db, max_products=max_products)}
 
 
@@ -214,6 +223,7 @@ def collect_retailer(
     retailer_id: str,
     max_products: int | None = 120,
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key),
 ) -> dict:
     try:
         job = run_retailer_collection(db, retailer_id, max_products=max_products)

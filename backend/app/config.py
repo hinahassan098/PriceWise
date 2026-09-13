@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     user_agent: str = "PriceWise/0.1 (grocery comparison; local research collector)"
     springs_max_products: int = 900
     request_delay_seconds: float = 0.12
+    # Shared secret for POST /api/admin/collect* (send as X-Admin-Key).
+    admin_api_key: str = ""
 
 
 settings = Settings()

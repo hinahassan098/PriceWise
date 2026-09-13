@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { API_BASE } from "@/lib/api";
 
 export function CollectButton() {
   const router = useRouter();
@@ -13,18 +12,27 @@ export function CollectButton() {
     setBusy(true);
     setMessage("Collecting all live stores…");
     try {
-      const res = await fetch(`${API_BASE}/api/admin/collect/all?max_products=80`, {
+      // Same-origin proxy keeps ADMIN_API_KEY on the server.
+      const res = await fetch("/api/admin/collect-all?max_products=80", {
         method: "POST",
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Collection failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail =
+          typeof data.detail === "string"
+            ? data.detail
+            : Array.isArray(data.detail)
+              ? data.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join("; ")
+              : "Collection failed";
+        throw new Error(detail);
+      }
       const summary = (data.jobs || [])
         .map(
           (j: { retailer_id: string; items_upserted: number; status: string }) =>
             `${j.retailer_id}:${j.items_upserted}`,
         )
         .join(", ");
-      setMessage(`Done — ${summary}`);
+      setMessage(summary ? `Done — ${summary}` : "Done");
       router.refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Collection failed");
