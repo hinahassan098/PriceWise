@@ -19,6 +19,28 @@ app.add_middleware(
 app.include_router(router)
 
 
+def _warm_live_caches() -> None:
+    """Prefetch Imtiaz menu + Naheed/SPAR sitemap URL lists for snappy first search."""
+    try:
+        from app.collectors.imtiaz_blink import ImtiazCollector
+
+        ImtiazCollector().search_live("milk", limit=1)
+    except Exception:
+        pass
+    try:
+        from app.collectors.naheed_html import NaheedHtmlCollector
+
+        NaheedHtmlCollector().warm_url_cache()
+    except Exception:
+        pass
+    try:
+        from app.collectors.spar_html import SparHtmlCollector
+
+        SparHtmlCollector().warm_url_cache()
+    except Exception:
+        pass
+
+
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
@@ -27,3 +49,7 @@ def startup() -> None:
         seed(db)
     finally:
         db.close()
+    # Warm in the background so boot stays fast.
+    import threading
+
+    threading.Thread(target=_warm_live_caches, daemon=True).start()

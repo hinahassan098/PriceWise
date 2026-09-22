@@ -21,6 +21,7 @@ def search_variants(
     query: str,
     *,
     retailer_id: str | None = None,
+    retailer_ids: set[str] | None = None,
     in_stock: bool | None = None,
     limit: int = 30,
 ) -> dict:
@@ -54,7 +55,12 @@ def search_variants(
     ranked.sort(key=lambda item: item[0], reverse=True)
     results = []
     for score, variant in ranked[:limit]:
-        card = _variant_card(variant, retailer_id=retailer_id, in_stock=in_stock)
+        card = _variant_card(
+            variant,
+            retailer_id=retailer_id,
+            retailer_ids=retailer_ids,
+            in_stock=in_stock,
+        )
         if card is None:
             continue
         card["score"] = round(score, 2)
@@ -88,23 +94,17 @@ def search_variants(
 
 
 def suggest(db: Session, query: str, limit: int = 8) -> list[dict]:
-    if not query.strip():
-        return []
-    data = search_variants(db, query, limit=limit)
-    return [
-        {
-            "variant_id": row["variant_id"],
-            "label": f"{row['brand'] + ' ' if row['brand'] else ''}{row['name']} {row['size_label']}".strip(),
-            "size_label": row["size_label"],
-        }
-        for row in data["results"][:limit]
-    ]
+    """Backward-compatible wrapper — prefer app.services.suggest.suggest. """
+    from app.services.suggest import suggest as suggest_fast
+
+    return suggest_fast(db, query, limit=limit)
 
 
 def _variant_card(
     variant: ProductVariant,
     *,
     retailer_id: str | None = None,
+    retailer_ids: set[str] | None = None,
     in_stock: bool | None = None,
 ) -> dict | None:
     offers = []
@@ -114,6 +114,8 @@ def _variant_card(
         if rp.match_decision == "review" and rp.match_confidence and float(rp.match_confidence) < 95:
             continue
         if retailer_id and rp.retailer_id != retailer_id:
+            continue
+        if retailer_ids is not None and rp.retailer_id not in retailer_ids:
             continue
         if in_stock is True and rp.availability != "in_stock":
             continue

@@ -46,9 +46,25 @@ export type SearchResult = {
 export type SearchResponse = {
   query: string;
   mode?: string;
+  city?: string;
   results: SearchResult[];
   all_store_prices?: StoreOffer[];
   stores_queried?: string[];
+};
+
+export type Suggestion = {
+  variant_id: number | null;
+  label: string;
+  size_label: string;
+  brand?: string | null;
+  query: string;
+  source: string;
+};
+
+export type CityOption = {
+  id: string;
+  name: string;
+  nationwide: boolean;
 };
 
 export function formatPkr(amount: number): string {
@@ -83,9 +99,22 @@ export async function wakeApi(): Promise<void> {
   }
 }
 
-export async function searchProducts(q: string): Promise<SearchResponse> {
+export async function searchProducts(
+  q: string,
+  opts?: { city?: string },
+): Promise<SearchResponse> {
   const params = new URLSearchParams({ q, live: "true" });
+  if (opts?.city && opts.city !== "all") params.set("city", opts.city);
   return apiGet<SearchResponse>(`/api/search?${params.toString()}`);
+}
+
+export async function suggestProducts(q: string): Promise<{ suggestions: Suggestion[] }> {
+  const params = new URLSearchParams({ q });
+  return apiGet(`/api/search/suggest?${params.toString()}`);
+}
+
+export async function getCities(): Promise<{ cities: CityOption[] }> {
+  return apiGet("/api/cities");
 }
 
 export { API_BASE };

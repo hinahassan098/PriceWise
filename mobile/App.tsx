@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -6,6 +6,7 @@ import {
   Linking,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,10 +16,14 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import {
   formatPkr,
+  getCities,
   searchProducts,
+  suggestProducts,
   wakeApi,
+  type CityOption,
   type SearchResult,
   type StoreOffer,
+  type Suggestion,
 } from "./src/api";
 
 const COLORS = {
@@ -60,17 +65,51 @@ export default function App() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [flat, setFlat] = useState<StoreOffer[]>([]);
   const [searched, setSearched] = useState(false);
+  const [city, setCity] = useState("all");
+  const [cities, setCities] = useState<CityOption[]>([
+    { id: "all", name: "All Pakistan", nationwide: true },
+  ]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    getCities()
+      .then((data) => {
+        if (data.cities?.length) setCities(data.cities);
+      })
+      .catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      suggestProducts(q)
+        .then((data) => {
+          setSuggestions(data.suggestions || []);
+          setShowSuggestions(true);
+        })
+        .catch(() => setSuggestions([]));
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const runSearch = useCallback(async (raw: string) => {
     const q = raw.trim();
     if (!q) return;
     setQuery(q);
+    setShowSuggestions(false);
     setLoading(true);
     setError(null);
     setSearched(true);
     try {
       await wakeApi();
-      const data = await searchProducts(q);
+      const data = await searchProducts(q, {
+        city: city === "all" ? undefined : city,
+      });
       setResults(data.results || []);
       setFlat(data.all_store_prices || []);
     } catch (err) {
@@ -84,13 +123,17 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [city]);
 
   const onSearch = useCallback(() => {
     void runSearch(query);
   }, [query, runSearch]);
 
   const showHome = !searched && !loading;
+  const cityLabel =
+    city === "all"
+      ? "All Pakistan"
+      : cities.find((c) => c.name === city)?.name || city;
 
   return (
     <View style={styles.root}>
@@ -130,6 +173,34 @@ export default function App() {
                     and open the cheapest store to buy.
                   </Text>
 
+                  <Text style={styles.cityLabel}>City</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.cityRow}
+                  >
+                    {cities.map((c) => {
+                      const value = c.nationwide ? "all" : c.name;
+                      const active = city === value;
+                      return (
+                        <Pressable
+                          key={c.id}
+                          style={[styles.cityChip, active && styles.cityChipActive]}
+                          onPress={() => setCity(value)}
+                        >
+                          <Text
+                            style={[
+                              styles.cityChipText,
+                              active && styles.cityChipTextActive,
+                            ]}
+                          >
+                            {c.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+
                   <View style={styles.searchBox}>
                     <TextInput
                       value={query}
@@ -139,6 +210,7 @@ export default function App() {
                       style={styles.input}
                       returnKeyType="search"
                       onSubmitEditing={onSearch}
+                      onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                     />
                     <Pressable
                       style={({ pressed }) => [
@@ -153,6 +225,26 @@ export default function App() {
                       </Text>
                     </Pressable>
                   </View>
+
+                  {showSuggestions && suggestions.length > 0 ? (
+                    <View style={styles.suggestPanel}>
+                      {suggestions.slice(0, 8).map((item, idx) => (
+                        <Pressable
+                          key={`${item.label}-${idx}`}
+                          style={styles.suggestRow}
+                          onPress={() => void runSearch(item.query || item.label)}
+                        >
+                          <Text style={styles.suggestLabel} numberOfLines={1}>
+                            {item.label}
+                          </Text>
+                          <Text style={styles.suggestMeta} numberOfLines={1}>
+                            {item.size_label}
+                            {item.brand ? ` · ${item.brand}` : ""}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
 
                   <Text style={styles.tryLabel}>
                     Try{" "}
@@ -200,7 +292,7 @@ export default function App() {
                 <View style={styles.resultsHead}>
                   <Text style={styles.resultsTitle}>Search results</Text>
                   <Text style={styles.resultsMeta}>
-                    for “{query.trim()}”
+                    for “{query.trim()}” · {cityLabel}
                     {loading ? " · searching live stores…" : ""}
                   </Text>
                 </View>
@@ -427,8 +519,39 @@ const styles = StyleSheet.create({
     color: COLORS.heroMuted,
     maxWidth: 340,
   },
+  cityLabel: {
+    marginTop: 16,
+    marginBottom: 8,
+    color: COLORS.heroMuted,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  cityRow: {
+    gap: 8,
+    paddingBottom: 4,
+  },
+  cityChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,200,214,0.45)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  cityChipActive: {
+    backgroundColor: COLORS.blush,
+    borderColor: COLORS.blush,
+  },
+  cityChipText: {
+    color: COLORS.heroMuted,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  cityChipTextActive: {
+    color: COLORS.accentDeep,
+  },
   searchBox: {
-    marginTop: 22,
+    marginTop: 14,
     flexDirection: "row",
     gap: 8,
     backgroundColor: "#fff",
@@ -436,6 +559,30 @@ const styles = StyleSheet.create({
     padding: 6,
     borderWidth: 1,
     borderColor: COLORS.line,
+  },
+  suggestPanel: {
+    marginTop: 8,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    overflow: "hidden",
+  },
+  suggestRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.line,
+  },
+  suggestLabel: {
+    color: COLORS.ink,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  suggestMeta: {
+    marginTop: 2,
+    color: COLORS.inkSoft,
+    fontSize: 12,
   },
   input: {
     flex: 1,

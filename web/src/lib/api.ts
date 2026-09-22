@@ -19,7 +19,7 @@ export type StoreOffer = {
   retailer_id: string;
   retailer_name: string;
   product_name: string;
-  price: number;
+  price: number | null;
   compare_at_price?: number | null;
   availability: string;
   url: string;
@@ -96,6 +96,22 @@ export type Retailer = {
   status: string;
   platform: string | null;
   last_successful_sync: string | null;
+  cities?: string[];
+};
+
+export type CityOption = {
+  id: string;
+  name: string;
+  nationwide: boolean;
+};
+
+export type Suggestion = {
+  variant_id: number | null;
+  label: string;
+  size_label: string;
+  brand?: string | null;
+  query: string;
+  source: "catalog" | "live" | string;
 };
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -110,7 +126,8 @@ async function apiGet<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function formatPkr(amount: number): string {
+export function formatPkr(amount: number | null | undefined): string {
+  if (amount == null || Number.isNaN(Number(amount))) return "See store";
   return `Rs. ${amount.toLocaleString("en-PK", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
@@ -119,12 +136,13 @@ export function formatPkr(amount: number): string {
 
 export async function searchProducts(
   q: string,
-  opts?: { store?: string; inStock?: boolean; live?: boolean },
+  opts?: { store?: string; city?: string; inStock?: boolean; live?: boolean },
 ) {
   const params = new URLSearchParams({ q });
   // Live multi-store by default; backend enforces a short scrape budget.
   params.set("live", opts?.live === false ? "false" : "true");
   if (opts?.store) params.set("store", opts.store);
+  if (opts?.city && opts.city !== "all") params.set("city", opts.city);
   if (opts?.inStock === true) params.set("in_stock", "true");
   if (opts?.inStock === false) params.set("in_stock", "false");
   const res = await fetch(`${API_BASE}/api/search?${params.toString()}`, {
@@ -138,26 +156,41 @@ export async function searchProducts(
   return res.json() as Promise<{
     query: string;
     mode?: string;
+    city?: string;
     parsed: { name: string; size_label: string | null; pack_count: number | null };
     results: SearchResult[];
     all_store_prices?: StoreOffer[];
     stores_queried?: string[];
+    store_errors?: Record<string, string>;
+    store_links?: { retailer_id: string; retailer_name: string; url: string; label: string }[];
   }>;
 }
 
-export async function suggestProducts(q: string) {
+export async function suggestProducts(q: string, signal?: AbortSignal) {
   const params = new URLSearchParams({ q });
-  return apiGet<{
-    suggestions: { variant_id: number; label: string; size_label: string }[];
-  }>(`/api/search/suggest?${params.toString()}`);
+  const res = await fetch(`${API_BASE}/api/search/suggest?${params.toString()}`, {
+    cache: "no-store",
+    signal: signal ?? AbortSignal.timeout(3_500),
+  });
+  if (!res.ok) {
+    throw new Error(`API /api/search/suggest failed (${res.status})`);
+  }
+  return res.json() as Promise<{ suggestions: Suggestion[] }>;
+}
+
+export async function getCities() {
+  return apiGet<{ cities: CityOption[] }>("/api/cities");
 }
 
 export async function getComparison(variantId: number, sort = "cheapest") {
   return apiGet<Comparison>(`/api/variants/${variantId}?sort=${sort}`);
 }
 
-export async function getRetailers() {
-  return apiGet<{ retailers: Retailer[] }>("/api/retailers");
+export async function getRetailers(city?: string) {
+  const params = new URLSearchParams();
+  if (city && city !== "all") params.set("city", city);
+  const qs = params.toString();
+  return apiGet<{ retailers: Retailer[] }>(`/api/retailers${qs ? `?${qs}` : ""}`);
 }
 
 export async function getAdminStats() {

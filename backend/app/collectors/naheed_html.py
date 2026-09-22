@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+import html as html_lib
+import json
 import re
 import time
 from collections.abc import Iterator
+from pathlib import Path
 
 import httpx
 
 from app.collectors.base import CollectedProduct, utcnow
 from app.collectors.shopify import clean_brand
-from app.collectors.spar_html import _slug_matches
+from app.collectors.spar_html import _slug_matches, _live_tokens
 from app.config import settings
 
 _URL_CACHE: dict[str, list[str]] = {}
+_DISK_CACHE = Path(__file__).resolve().parents[2] / ".cache" / "naheed_urls.json"
+_DISK_TTL_SECONDS = 6 * 60 * 60
 
 
 class NaheedHtmlCollector:
@@ -26,8 +31,15 @@ class NaheedHtmlCollector:
 
     def __init__(self, client: httpx.Client | None = None) -> None:
         self.client = client or httpx.Client(
-            timeout=30.0,
-            headers={"User-Agent": settings.user_agent, "Accept": "text/html,application/xml"},
+            timeout=httpx.Timeout(12.0, connect=4.0),
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+                "Accept": "text/html,application/xml",
+            },
             follow_redirects=True,
         )
 
@@ -35,7 +47,7 @@ class NaheedHtmlCollector:
         limit = max_products or settings.springs_max_products
         yielded = 0
         for url in self._product_urls():
-            product = self._parse_product(url)
+            product = self._parse_product(url, pause=True)
             if product is None:
                 continue
             yield product
@@ -44,34 +56,46 @@ class NaheedHtmlCollector:
                 return
 
     def search_live(self, query: str, limit: int = 20) -> list[CollectedProduct]:
-        tokens = [tok for tok in re.split(r"\s+", query.lower().strip()) if tok]
+        tokens = _live_tokens(query)
         if not tokens:
             return []
         out: list[CollectedProduct] = []
+        # Cap how many product pages we hit during interactive search.
+        max_fetches = max(limit, 8)
+        fetches = 0
         for url in self._product_urls():
             if not _slug_matches(url, tokens):
                 continue
-            item = self._parse_product(url)
-            if item is None:
-                continue
-            out.append(item)
-            if len(out) >= limit:
+            item = self._parse_product(url, pause=False)
+            fetches += 1
+            if item is not None:
+                out.append(item)
+            if len(out) >= limit or fetches >= max_fetches:
                 break
         return out
+
+    def warm_url_cache(self) -> int:
+        return len(self._product_urls())
 
     def _product_urls(self) -> list[str]:
         cached = _URL_CACHE.get(self.retailer_id)
         if cached is not None:
             return cached
+        disk = self._load_disk()
+        if disk is not None:
+            _URL_CACHE[self.retailer_id] = disk
+            return disk
+
         urls: list[str] = []
-        index = self._get_text(self.sitemap_index)
+        index = self._get_text(self.sitemap_index, pause=False)
         if not index:
-            _URL_CACHE[self.retailer_id] = urls
+            # Do not poison memory/disk with an empty failed fetch.
             return urls
         for sm in re.findall(r"<loc>(.*?)</loc>", index):
-            if "sitemap_category" in sm:
+            # sitemap_001 is mostly category trees; products start later.
+            if "sitemap_category" in sm or sm.rstrip("/").endswith("sitemap_001.xml"):
                 continue
-            xml = self._get_text(sm)
+            xml = self._get_text(sm, pause=False)
             if not xml:
                 continue
             for loc in re.findall(r"<loc>(.*?)</loc>", xml):
@@ -85,11 +109,36 @@ class NaheedHtmlCollector:
                 if path.startswith("pub/") or "." in path.split("-")[0]:
                     continue
                 urls.append(loc)
+        if not urls:
+            return urls
         _URL_CACHE[self.retailer_id] = urls
+        self._save_disk(urls)
         return urls
 
-    def _parse_product(self, url: str) -> CollectedProduct | None:
-        html = self._get_text(url)
+    def _load_disk(self) -> list[str] | None:
+        try:
+            if not _DISK_CACHE.exists():
+                return None
+            payload = json.loads(_DISK_CACHE.read_text(encoding="utf-8"))
+            if time.time() - float(payload.get("cached_at", 0)) > _DISK_TTL_SECONDS:
+                return None
+            urls = payload.get("urls")
+            return urls if isinstance(urls, list) and urls else None
+        except Exception:
+            return None
+
+    def _save_disk(self, urls: list[str]) -> None:
+        try:
+            _DISK_CACHE.parent.mkdir(parents=True, exist_ok=True)
+            _DISK_CACHE.write_text(
+                json.dumps({"cached_at": time.time(), "urls": urls}),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+    def _parse_product(self, url: str, *, pause: bool) -> CollectedProduct | None:
+        html = self._get_text(url, pause=pause)
         if not html:
             return None
 
@@ -104,6 +153,7 @@ class NaheedHtmlCollector:
             name = og.group(1).strip() if og else None
         if not name:
             return None
+        name = html_lib.unescape(name).strip()
 
         price_m = re.search(
             r'property="product:price:amount" content="([^"]+)"',
@@ -156,8 +206,9 @@ class NaheedHtmlCollector:
             source="naheed_html",
         )
 
-    def _get_text(self, url: str) -> str | None:
-        time.sleep(settings.request_delay_seconds)
+    def _get_text(self, url: str, *, pause: bool) -> str | None:
+        if pause:
+            time.sleep(settings.request_delay_seconds)
         try:
             response = self.client.get(url)
         except Exception:

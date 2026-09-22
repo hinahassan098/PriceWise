@@ -5,8 +5,14 @@ hina.db
 hina.db-wal
 hina.db-shm
 .pytest_cache/
+backend/.cache/
 node_modules/
 .next/
 out/
 web/.env.local
 backend/.env
+docs/_probe_*
+docs/_imtiaz_*
+docs/_chunk_*
+docs/_h.json
+docs/_api*.json

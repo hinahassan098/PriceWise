@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.collectors.carrefour_maf import CarrefourCollector
+from app.collectors.imtiaz_blink import ImtiazCollector
 from app.collectors.metro_next import MetroNextCollector
 from app.collectors.naheed_html import NaheedHtmlCollector
 from app.collectors.shopify import DEFAULT_QUERIES, ShopifyCollector
@@ -86,15 +88,21 @@ LIVE_COLLECTORS = {
     "nice-mart": NiceMartCollector,
     "naheed": NaheedHtmlCollector,
     "metro": MetroNextCollector,
+    "imtiaz": ImtiazCollector,
+    "carrefour": CarrefourCollector,
 }
 
-# Fast JSON-only storefronts for interactive search (HTML scrapers are too slow on Render).
+# Fast storefronts for interactive search (HTML scrapers use cached sitemaps).
 FAST_LIVE_COLLECTORS = {
     "springs": SpringsCollector,
     "alfatah": AlfatahCollector,
     "green-valley": GreenValleyCollector,
     "al-madina": AlMadinaCollector,
     "snapcart": SnapcartCollector,
+    "imtiaz": ImtiazCollector,
+    "carrefour": CarrefourCollector,
+    "naheed": NaheedHtmlCollector,
+    "spar": SparHtmlCollector,
 }
 
 
@@ -102,5 +110,8 @@ def get_live_collectors() -> dict:
     return {key: cls() for key, cls in LIVE_COLLECTORS.items()}
 
 
-def get_fast_live_collectors() -> dict:
-    return {key: cls() for key, cls in FAST_LIVE_COLLECTORS.items()}
+def get_fast_live_collectors(retailer_ids: set[str] | None = None) -> dict:
+    collectors = {key: cls() for key, cls in FAST_LIVE_COLLECTORS.items()}
+    if retailer_ids is None:
+        return collectors
+    return {key: col for key, col in collectors.items() if key in retailer_ids}

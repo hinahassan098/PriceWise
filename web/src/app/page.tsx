@@ -14,28 +14,40 @@ const CATEGORIES = [
 export default function HomePage() {
   return (
     <div className="site-shell">
-      <section className="hero-stage px-6 py-16 md:px-12 md:py-24">
+      <section className="hero-stage px-6 py-16 md:px-14 md:py-24">
         <div
           className="hero-orb"
           style={{
-            width: 220,
-            height: 220,
-            top: "-40px",
-            right: "8%",
-            background: "rgba(243, 197, 211, 0.35)",
+            width: 260,
+            height: 260,
+            top: "-60px",
+            right: "4%",
+            background: "rgba(243, 197, 211, 0.4)",
           }}
         />
         <div
           className="hero-orb"
           style={{
-            width: 160,
-            height: 160,
-            bottom: "12%",
-            left: "6%",
-            background: "rgba(155, 45, 74, 0.45)",
+            width: 180,
+            height: 180,
+            bottom: "8%",
+            left: "4%",
+            background: "rgba(155, 45, 74, 0.5)",
             animationDelay: "1.4s",
           }}
         />
+        <div
+          className="hero-orb"
+          style={{
+            width: 120,
+            height: 120,
+            top: "42%",
+            right: "28%",
+            background: "rgba(255, 245, 248, 0.12)",
+            animationDelay: "2.2s",
+          }}
+        />
+
         <div className="hero-content max-w-3xl">
           <Image
             src="/logo-mark.png"
@@ -43,34 +55,40 @@ export default function HomePage() {
             width={96}
             height={96}
             priority
-            className="mb-5 h-16 w-16 rounded-full md:h-20 md:w-20"
+            className="hero-logo mb-6 h-16 w-16 rounded-full md:h-20 md:w-20"
           />
-          <p className="brand-mark mb-3 text-5xl text-[var(--hero-fg)] md:text-7xl">
+          <p className="brand-mark mb-4 text-6xl leading-none text-[var(--hero-fg)] md:text-8xl">
             PriceWise
           </p>
           <h1 className="max-w-xl text-2xl font-normal leading-snug text-[var(--hero-fg)] md:text-3xl">
             Compare prices across Pakistan
           </h1>
-          <p className="mt-3 max-w-lg text-base text-[var(--hero-muted)] md:text-lg">
+          <p className="mt-4 max-w-lg text-base leading-relaxed text-[var(--hero-muted)] md:text-lg">
             Search a product, see verified timestamps from retailers, and open
             the cheapest store to buy.
           </p>
-          <div className="mt-8 text-[var(--ink)]">
+          <div className="mt-10 text-[var(--ink)]">
             <SearchBox autofocus size="hero" />
           </div>
-          <p className="mt-4 text-sm text-[var(--hero-muted)]">
+          <p className="pointer-events-none mt-5 text-sm text-[var(--hero-muted)]">
             Try{" "}
-            <Link href="/search?q=brite%201kg" className="underline decoration-[var(--blush)] underline-offset-4">
+            <Link
+              href="/search?q=brite%201kg"
+              className="pointer-events-auto underline decoration-[var(--blush)] underline-offset-4 transition hover:text-white"
+            >
               Brite 1kg
             </Link>
             ,{" "}
-            <Link href="/search?q=lays" className="underline decoration-[var(--blush)] underline-offset-4">
+            <Link
+              href="/search?q=lays"
+              className="pointer-events-auto underline decoration-[var(--blush)] underline-offset-4 transition hover:text-white"
+            >
               Lays
             </Link>{" "}
             or{" "}
             <Link
               href="/search?q=Surf%20Excel%201kg"
-              className="underline decoration-[var(--blush)] underline-offset-4"
+              className="pointer-events-auto underline decoration-[var(--blush)] underline-offset-4 transition hover:text-white"
             >
               Surf Excel 1kg
             </Link>
@@ -78,14 +96,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mt-14" style={{ animation: "rise-in 0.7s ease-out 0.12s both" }}>
-        <h2 className="brand-mark text-3xl text-[var(--accent-deep)]">
+      <section
+        className="mt-16 md:mt-20"
+        style={{ animation: "rise-in 0.7s ease-out 0.12s both" }}
+      >
+        <p className="section-kicker">Browse</p>
+        <h2 className="brand-mark mt-2 text-3xl text-[var(--accent-deep)] md:text-4xl">
           Popular categories
         </h2>
-        <p className="mt-2 text-[var(--ink-soft)]">
+        <p className="mt-2 max-w-xl text-[var(--ink-soft)]">
           Packaged grocery first. Fresh produce and loose items come later.
         </p>
-        <div className="mt-4 border-t border-[var(--line)]">
+        <div className="mt-6 border-t border-[var(--line)]">
           {CATEGORIES.map((category) => (
             <Link key={category.label} href={category.href} className="category-link text-lg">
               {category.label}

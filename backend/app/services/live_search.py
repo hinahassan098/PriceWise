@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import quote_plus
 
 from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
@@ -11,6 +12,74 @@ from app.matching.normalize import normalize_name
 from app.matching.units import PACK_RE, SIZE_RE, parse_size
 from app.services.freshness import freshness, unit_price
 from app.services.ingest import ingest_product
+
+
+# Human-facing search URLs when we have no priced scrape hit (or store isn't in FAST live).
+STORE_SEARCH_URLS = {
+    "springs": "https://springs.com.pk/search?q={q}&type=product",
+    "alfatah": "https://alfatah.pk/search?q={q}",
+    "green-valley": "https://greenvalley.pk/search?q={q}",
+    "al-madina": "https://www.almadinastore.pk/search?q={q}",
+    "snapcart": "https://snapcart.pk/search?q={q}",
+    "spar": "https://store.spar.pk/search?q={q}",
+    "nice-mart": "https://www.nicemart.pk/search?q={q}",
+    "naheed": "https://www.naheed.pk/catalogsearch/result/?q={q}",
+    "metro": "https://www.metro-online.pk/search?q={q}",
+    "imtiaz": "https://shop.imtiaz.com.pk/?q={q}",
+    "carrefour": "https://www.carrefour.pk/mafpak/en/search?keyword={q}",
+}
+
+# Always surface a search Open-link for these stores on every live query.
+ALWAYS_LINK_STORES = ("naheed", "carrefour", "imtiaz", "spar")
+
+RETAILER_NAMES = {
+    "springs": "Springs",
+    "alfatah": "Al-Fatah",
+    "green-valley": "Green Valley",
+    "al-madina": "Al-Madina",
+    "snapcart": "Snapcart",
+    "spar": "SPAR",
+    "nice-mart": "Nice Mart",
+    "naheed": "Naheed",
+    "metro": "Metro",
+    "imtiaz": "Imtiaz",
+    "carrefour": "Carrefour",
+}
+
+
+def _store_search_link(retailer_id: str, query: str) -> dict | None:
+    template = STORE_SEARCH_URLS.get(retailer_id)
+    if not template:
+        return None
+    name = RETAILER_NAMES.get(retailer_id, retailer_id.replace("-", " ").title())
+    url = template.format(q=quote_plus(query.strip()))
+    return {
+        "retailer_id": retailer_id,
+        "retailer_name": name,
+        "url": url,
+        "label": f"Search on {name}",
+    }
+
+
+def _store_link_offer(link: dict, query: str) -> dict:
+    return {
+        "retailer_id": link["retailer_id"],
+        "retailer_name": link["retailer_name"],
+        "product_name": f'Search "{query.strip()}" on {link["retailer_name"]}',
+        "price": None,
+        "compare_at_price": None,
+        "availability": "in_stock",
+        "url": link["url"],
+        "image_url": None,
+        "size_label": "",
+        "unit_price": None,
+        "freshness": {"level": "live", "label": "open store", "checked_at": None},
+        "variant_id": None,
+        "source": "store_link",
+        "brand": None,
+        "canonical_name": query.strip(),
+        "group_key": f"link|{link['retailer_id']}",
+    }
 
 
 def _group_key(item: CollectedProduct) -> str:
@@ -66,19 +135,6 @@ def _merge_groups(groups: dict[str, dict]) -> dict[str, dict]:
     return {g["group_key"]: g for g in merged}
 
 
-RETAILER_NAMES = {
-    "springs": "Springs",
-    "alfatah": "Al-Fatah",
-    "green-valley": "Green Valley",
-    "al-madina": "Al-Madina",
-    "snapcart": "Snapcart",
-    "spar": "SPAR",
-    "nice-mart": "Nice Mart",
-    "naheed": "Naheed",
-    "metro": "Metro",
-}
-
-
 def _offer_dict(item: CollectedProduct, variant_id: int | None = None) -> dict:
     size = parse_size(item.name)
     per = unit_price(item.price, size.pack_count, size.value, size.unit)
@@ -101,13 +157,30 @@ def _offer_dict(item: CollectedProduct, variant_id: int | None = None) -> dict:
     }
 
 
-def live_search(db: Session, query: str, *, persist: bool = True, limit_per_store: int = 10) -> dict:
+def live_search(
+    db: Session,
+    query: str,
+    *,
+    persist: bool = True,
+    limit_per_store: int = 10,
+    retailer_ids: set[str] | None = None,
+) -> dict:
     """Query fast Pakistani Shopify storefronts and group offers by product."""
-    collectors = get_fast_live_collectors()
+    collectors = get_fast_live_collectors(retailer_ids)
+    if not collectors:
+        return {
+            "query": query,
+            "mode": "live_multi_store",
+            "parsed": {"name": query, "size_label": None, "pack_count": None},
+            "store_errors": {},
+            "stores_queried": [],
+            "results": [],
+            "all_store_prices": [],
+        }
     gathered: list[CollectedProduct] = []
     store_errors: dict[str, str] = {}
-    # Keep interactive search well under Render request limits.
-    overall_timeout_s = 8
+    # Keep interactive search under Render limits; allow cold sitemap/menu warm.
+    overall_timeout_s = 20
 
     def _run(retailer_id: str, collector):
         try:
@@ -216,7 +289,37 @@ def live_search(db: Session, query: str, *, persist: bool = True, limit_per_stor
                     "variant_id": group.get("variant_id"),
                 }
             )
-    flat_offers.sort(key=lambda o: (0 if o["availability"] == "in_stock" else 1, o["price"]))
+    # Always link Naheed / Carrefour / Imtiaz search pages for every query.
+    # Also link any other store with no priced scrape hit.
+    priced_ids = {item.retailer for item in gathered}
+    link_ids = set(ALWAYS_LINK_STORES) | {
+        rid for rid in STORE_SEARCH_URLS if rid not in priced_ids
+    }
+    if retailer_ids is not None:
+        link_ids &= retailer_ids
+    store_links: list[dict] = []
+    linked_ids: set[str] = set()
+    # Priority order: Naheed, Carrefour, Imtiaz first.
+    ordered = [rid for rid in ALWAYS_LINK_STORES if rid in link_ids]
+    ordered += sorted(rid for rid in link_ids if rid not in ALWAYS_LINK_STORES)
+    for rid in ordered:
+        link = _store_search_link(rid, query)
+        if not link or rid in linked_ids:
+            continue
+        linked_ids.add(rid)
+        store_links.append(link)
+        flat_offers.append(_store_link_offer(link, query))
+        store_errors.pop(rid, None)
+
+    # Keep Open-store rows near the top so they’re easy to spot.
+    flat_offers.sort(
+        key=lambda o: (
+            0 if o.get("source") == "store_link" and o.get("retailer_id") in ALWAYS_LINK_STORES else 1,
+            0 if o.get("source") == "store_link" else 1,
+            0 if o["availability"] == "in_stock" else 1,
+            o["price"] if o.get("price") is not None else 10**12,
+        )
+    )
 
     return {
         "query": query,
@@ -228,6 +331,7 @@ def live_search(db: Session, query: str, *, persist: bool = True, limit_per_stor
         },
         "store_errors": store_errors,
         "stores_queried": list(collectors.keys()),
+        "store_links": store_links,
         "results": [
             {
                 "variant_id": g.get("variant_id"),

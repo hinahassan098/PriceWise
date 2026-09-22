@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.auth import require_admin_key
 from app.models import CollectionJob, MatchReview, Price, Product, ProductVariant, Retailer, RetailerProduct
+from app.services.cities import list_cities, retailer_ids_for_city
 from app.services.collect import run_all_collections, run_retailer_collection, run_springs_collection
 from app.services.comparison import comparison, history
 from app.services.live_search import live_search
-from app.services.search import search_variants, suggest
+from app.services.search import search_variants
+from app.services.suggest import suggest
 
 router = APIRouter(prefix="/api")
 
@@ -24,13 +26,22 @@ def health() -> dict:
     return {"ok": True, "service": "pricewise"}
 
 
+@router.get("/cities")
+def cities(db: Session = Depends(get_db)) -> dict:
+    return {"cities": list_cities(db)}
+
+
 @router.get("/retailers")
-def retailers(db: Session = Depends(get_db)) -> dict:
+def retailers(city: str | None = None, db: Session = Depends(get_db)) -> dict:
+    allowed = retailer_ids_for_city(db, city)
     rows = db.scalars(
         select(Retailer)
         .where(Retailer.status == "connected")
+        .options(joinedload(Retailer.cities))
         .order_by(Retailer.name)
-    ).all()
+    ).unique().all()
+    if allowed is not None:
+        rows = [row for row in rows if row.id in allowed]
     return {
         "retailers": [
             {
@@ -41,6 +52,7 @@ def retailers(db: Session = Depends(get_db)) -> dict:
                 "status": row.status,
                 "platform": row.platform,
                 "last_successful_sync": row.last_successful_sync.isoformat() if row.last_successful_sync else None,
+                "cities": [c.city for c in row.cities],
             }
             for row in rows
         ]
@@ -59,6 +71,7 @@ def categories(db: Session = Depends(get_db)) -> dict:
 def search(
     q: str = Query(..., min_length=1),
     store: str | None = None,
+    city: str | None = None,
     in_stock: bool | None = None,
     live: bool = Query(True),
     db: Session = Depends(get_db),
@@ -72,7 +85,7 @@ def search(
             offers = [o for o in (row.get("offers") or []) if o.get("availability") == want]
             if not offers:
                 continue
-            offers.sort(key=lambda o: o["price"])
+            offers.sort(key=lambda o: o["price"] if o.get("price") is not None else 10**12)
             cheapest = offers[0]
             row["offers"] = offers
             row["store_count"] = len(offers)
@@ -92,23 +105,62 @@ def search(
         ]
         return data
 
-    if live and not store:
-        # Skip ingest during request so search stays under Render timeouts.
-        data = live_search(db, q, persist=False)
-        if data.get("results"):
-            return _apply_stock(data)
-        # Live scrapes can time out on free hosts; fall back to catalog data.
-        data = search_variants(db, q, retailer_id=None, in_stock=in_stock)
-        data["mode"] = "catalog_fallback"
+    def _stamp_city(data: dict) -> dict:
+        data["city"] = city or "all"
         return data
 
-    data = search_variants(db, q, retailer_id=retailer_id(store), in_stock=in_stock)
+    city_retailers = retailer_ids_for_city(db, city)
+    # If a specific store is requested but not in the city set, return empty.
+    if store and city_retailers is not None and store.lower() not in city_retailers:
+        return _stamp_city(
+            {
+                "query": q,
+                "mode": "empty_city_store",
+                "parsed": {"name": q, "size_label": None, "pack_count": None},
+                "results": [],
+                "all_store_prices": [],
+                "stores_queried": [],
+                "store_errors": {
+                    store.lower(): f"not available in {city}",
+                },
+            }
+        )
+
+    if live and not store:
+        # Skip ingest during request so search stays under Render timeouts.
+        data = live_search(db, q, persist=False, retailer_ids=city_retailers)
+        if data.get("results"):
+            return _stamp_city(_apply_stock(data))
+        # Live scrapes can time out on free hosts; fall back to catalog data.
+        data = search_variants(
+            db, q, retailer_id=None, retailer_ids=city_retailers, in_stock=in_stock
+        )
+        data["mode"] = "catalog_fallback"
+        return _stamp_city(data)
+
+    # Single-store live: Imtiaz/Carrefour (and others) have no catalog rows until ingest.
+    if live and store:
+        wanted = {store.lower()}
+        if city_retailers is not None:
+            wanted &= city_retailers
+        data = live_search(db, q, persist=False, retailer_ids=wanted or {store.lower()})
+        if data.get("results") or data.get("store_errors") or data.get("stores_queried"):
+            return _stamp_city(_apply_stock(data))
+        # Fall through to catalog if live returned nothing.
+
+    data = search_variants(
+        db,
+        q,
+        retailer_id=retailer_id(store),
+        retailer_ids=None if store else city_retailers,
+        in_stock=in_stock,
+    )
     # Render free disks are ephemeral — after redeploy the catalog is empty.
     if not store and not data.get("results"):
-        live_data = live_search(db, q)
+        live_data = live_search(db, q, retailer_ids=city_retailers)
         if live_data.get("results"):
-            return _apply_stock(live_data)
-    return data
+            return _stamp_city(_apply_stock(live_data))
+    return _stamp_city(data)
 
 
 @router.get("/search/suggest")

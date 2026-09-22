@@ -1,106 +1,238 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, KeyboardEvent, Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { suggestProducts } from "@/lib/api";
+import { suggestProducts, type Suggestion } from "@/lib/api";
+import { CityPicker, normalizeCityParam, readStoredCity } from "@/components/CityPicker";
 
 type Props = {
   initialQuery?: string;
   autofocus?: boolean;
   size?: "hero" | "compact";
+  showCity?: boolean;
 };
 
 function SearchBoxInner({
   initialQuery = "",
   autofocus = false,
   size = "hero",
+  showCity = true,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(initialQuery);
-  const [suggestions, setSuggestions] = useState<
-    { variant_id: number; label: string; size_label: string }[]
-  >([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const [suggesting, setSuggesting] = useState(false);
+  const listRef = useRef<HTMLUListElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setQuery(initialQuery);
   }, [initialQuery]);
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    const q = query.trim();
+    if (q.length < 2) {
+      abortRef.current?.abort();
       setSuggestions([]);
+      setOpen(false);
+      setActive(-1);
+      setSuggesting(false);
       return;
     }
-    const handle = window.setTimeout(async () => {
-      try {
-        const data = await suggestProducts(query.trim());
-        setSuggestions(data.suggestions);
-        setOpen(true);
-      } catch {
-        setSuggestions([]);
-      }
-    }, 220);
-    return () => window.clearTimeout(handle);
+
+    const handle = window.setTimeout(() => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setSuggesting(true);
+      suggestProducts(q, controller.signal)
+        .then((data) => {
+          if (controller.signal.aborted) return;
+          setSuggestions(data.suggestions || []);
+          setOpen((data.suggestions || []).length > 0);
+          setActive(-1);
+        })
+        .catch((err) => {
+          if (controller.signal.aborted || err?.name === "AbortError") return;
+          // Keep prior suggestions on soft failures to avoid flicker/lag feel.
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSuggesting(false);
+        });
+    }, 120);
+
+    return () => {
+      window.clearTimeout(handle);
+    };
   }, [query]);
 
-  function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    const q = query.trim();
-    if (!q) return;
-    setOpen(false);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
+  function cityParam() {
+    return normalizeCityParam(searchParams.get("city") || readStoredCity());
+  }
+
+  function buildSearchUrl(q: string) {
     const params = new URLSearchParams();
     params.set("q", q);
     const store = searchParams.get("store");
     const stock = searchParams.get("stock");
+    const city = cityParam();
     if (store) params.set("store", store);
     if (stock) params.set("stock", stock);
-    router.push(`/search?${params.toString()}`);
+    if (city && city !== "all") params.set("city", city);
+    return `/search?${params.toString()}`;
+  }
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    // Compare always searches the typed query — suggestions only fill the box.
+    const q = query.trim();
+    if (!q) return;
+    setOpen(false);
+    setActive(-1);
+    router.push(buildSearchUrl(q));
+  }
+
+  /** Suggestions only complete the input — they never navigate or search. */
+  function selectSuggestion(item: Suggestion) {
+    setQuery(item.query || item.label);
+    setOpen(false);
+    setActive(-1);
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!open || suggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActive((i) => (i + 1) % suggestions.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActive((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (event.key === "Escape") {
+      setOpen(false);
+      setActive(-1);
+    }
+    // Enter is handled by form submit → Compare searches. Suggestions never navigate.
   }
 
   return (
-    <div className={`relative w-full ${size === "hero" ? "max-w-2xl" : "max-w-xl"}`}>
-      <form onSubmit={onSubmit} className="panel flex overflow-hidden rounded-2xl">
+    <div className={`relative z-30 w-full ${size === "hero" ? "max-w-2xl" : "max-w-xl"}`}>
+      {showCity ? (
+        <div className="mb-3">
+          <CityPicker syncUrl={size === "compact"} variant={size === "hero" ? "hero" : "default"} />
+        </div>
+      ) : null}
+      <form onSubmit={onSubmit} className="panel search-field relative z-10 flex overflow-hidden rounded-2xl">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 180)}
+          onKeyDown={onKeyDown}
           autoFocus={autofocus}
-          placeholder='Search products… e.g. "Surf Excel 1kg"'
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={open && suggestions.length > 0}
+          aria-controls="search-suggestions"
+          aria-autocomplete="list"
+          placeholder='Search products… e.g. "Lays" or "Surf Excel"'
           className={`w-full bg-transparent px-5 outline-none placeholder:text-[var(--ink-soft)] ${
             size === "hero" ? "py-4 text-lg" : "py-3 text-base"
           }`}
           aria-label="Search products"
         />
-        <button type="submit" className="btn-accent px-5 font-medium">
-          Compare
+        <button type="submit" className="btn-accent px-6 font-medium tracking-wide">
+          {suggesting ? "…" : "Compare"}
         </button>
       </form>
       {open && suggestions.length > 0 ? (
-        <ul className="panel absolute z-20 mt-2 w-full overflow-hidden rounded-xl shadow-none">
-          {suggestions.map((item) => (
-            <li key={item.variant_id}>
-              <Link
-                href={`/product/${item.variant_id}`}
-                className="block border-b border-[var(--line)] px-4 py-3 last:border-b-0 hover:bg-[rgba(243,197,211,0.35)]"
-                onMouseDown={(e) => e.preventDefault()}
+        <ul
+          id="search-suggestions"
+          ref={listRef}
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[#fffafb] text-[var(--ink)]"
+          style={{
+            backgroundColor: "#fffafb",
+            boxShadow: "0 16px 36px rgba(42, 16, 24, 0.16)",
+          }}
+        >
+          {suggestions.map((item, idx) => {
+            const selected = idx === active;
+            const rowClass = `flex w-full flex-col gap-0.5 border-b border-[var(--line)] px-4 py-3 text-left last:border-b-0 transition-colors ${
+              selected
+                ? "bg-[rgba(243,197,211,0.55)]"
+                : "bg-[#fffafb] hover:bg-[rgba(243,197,211,0.35)]"
+            }`;
+            return (
+              <li
+                key={`${item.source}-${item.variant_id ?? item.label}-${idx}`}
+                role="option"
+                aria-selected={selected}
               >
-                <span className="block font-medium">{item.label}</span>
-                <span className="text-sm text-[var(--ink-soft)]">{item.size_label}</span>
-              </Link>
-            </li>
-          ))}
+                <button
+                  type="button"
+                  className={rowClass}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setActive(idx)}
+                  onClick={() => selectSuggestion(item)}
+                >
+                  <SuggestionRow item={item} query={query} />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </div>
   );
 }
 
+function SuggestionRow({ item, query }: { item: Suggestion; query: string }) {
+  return (
+    <>
+      <span className="block text-[15px] font-medium leading-snug text-[var(--ink)]">
+        {highlightMatch(item.label, query)}
+      </span>
+      <span className="text-sm text-[var(--ink-soft)]">
+        {[item.size_label, item.brand, item.source === "live" ? "live" : null]
+          .filter(Boolean)
+          .join(" · ")}
+      </span>
+    </>
+  );
+}
+
+function highlightMatch(label: string, query: string) {
+  const q = query.trim();
+  if (!q) return label;
+  const idx = label.toLowerCase().indexOf(q.toLowerCase());
+  if (idx < 0) return label;
+  return (
+    <>
+      {label.slice(0, idx)}
+      <mark className="bg-transparent font-semibold text-[var(--accent-deep)]">
+        {label.slice(idx, idx + q.length)}
+      </mark>
+      {label.slice(idx + q.length)}
+    </>
+  );
+}
+
 export function SearchBox(props: Props) {
   return (
-    <Suspense fallback={<div className={`w-full ${props.size === "hero" ? "max-w-2xl" : "max-w-xl"} h-14 panel rounded-2xl`} />}>
+    <Suspense
+      fallback={
+        <div
+          className={`w-full ${props.size === "hero" ? "max-w-2xl" : "max-w-xl"} h-14 panel rounded-2xl`}
+        />
+      }
+    >
       <SearchBoxInner {...props} />
     </Suspense>
   );

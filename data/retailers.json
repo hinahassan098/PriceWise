@@ -26,8 +26,7 @@
       "slug": "springs",
       "website_url": "https://springs.com.pk",
       "cities": [
-        "Karachi",
-        "Nationwide shipping"
+        "Karachi"
       ],
       "platform": "Shopify",
       "scraping_method": "shopify_json",
@@ -60,8 +59,12 @@
       "website_url": "https://alfatah.pk",
       "cities": [
         "Lahore",
-        "Karachi",
-        "Nationwide shipping"
+        "Islamabad",
+        "Rawalpindi",
+        "Faisalabad",
+        "Sialkot",
+        "Gujranwala",
+        "Mandi Bahauddin"
       ],
       "platform": "Shopify",
       "scraping_method": "shopify_json",
@@ -77,7 +80,8 @@
       ],
       "endpoints": {
         "products_json": "https://alfatah.pk/products.json",
-        "search": "https://alfatah.pk/search/suggest.json"
+        "search": "https://alfatah.pk/search?q={query}",
+        "suggest": "https://alfatah.pk/search/suggest.json"
       },
       "integration_risk": "low"
     },
@@ -88,8 +92,7 @@
       "website_url": "https://greenvalley.pk",
       "cities": [
         "Rawalpindi",
-        "Islamabad",
-        "Nationwide shipping"
+        "Islamabad"
       ],
       "platform": "Shopify",
       "scraping_method": "shopify_json",
@@ -104,7 +107,8 @@
       ],
       "endpoints": {
         "products_json": "https://greenvalley.pk/products.json",
-        "search": "https://greenvalley.pk/search/suggest.json"
+        "search": "https://greenvalley.pk/search?q={query}",
+        "suggest": "https://greenvalley.pk/search/suggest.json"
       },
       "integration_risk": "low"
     },
@@ -130,7 +134,8 @@
       ],
       "endpoints": {
         "products_json": "https://www.almadinastore.pk/products.json",
-        "search": "https://www.almadinastore.pk/search/suggest.json"
+        "search": "https://www.almadinastore.pk/search?q={query}",
+        "suggest": "https://www.almadinastore.pk/search/suggest.json"
       },
       "integration_risk": "low"
     },
@@ -156,7 +161,8 @@
       ],
       "endpoints": {
         "products_json": "https://snapcart.pk/products.json",
-        "search": "https://snapcart.pk/search/suggest.json"
+        "search": "https://snapcart.pk/search?q={query}",
+        "suggest": "https://snapcart.pk/search/suggest.json"
       },
       "integration_risk": "low"
     },
@@ -182,7 +188,8 @@
       ],
       "endpoints": {
         "sitemap": "https://store.spar.pk/sitemap.xml",
-        "store": "https://store.spar.pk/"
+        "store": "https://store.spar.pk/",
+        "search": "https://store.spar.pk/search?q={query}"
       },
       "integration_risk": "medium"
     },
@@ -206,7 +213,8 @@
       ],
       "endpoints": {
         "sitemap": "https://www.nicemart.pk/sitemap.xml",
-        "store": "https://www.nicemart.pk/"
+        "store": "https://www.nicemart.pk/",
+        "search": "https://www.nicemart.pk/search?q={query}"
       },
       "integration_risk": "medium"
     },
@@ -229,7 +237,8 @@
         "Does not use robots-disallowed /catalogsearch/ or /catalog/product/view/"
       ],
       "endpoints": {
-        "sitemap": "https://www.naheed.pk/pub/media/sitemap.xml"
+        "sitemap": "https://www.naheed.pk/pub/media/sitemap.xml",
+        "search": "https://www.naheed.pk/catalogsearch/result/?q={query}"
       },
       "integration_risk": "medium"
     },
@@ -254,30 +263,76 @@
       ],
       "endpoints": {
         "sitemap": "https://www.metro-online.pk/sitemap.xml",
-        "home": "https://www.metro-online.pk/home"
+        "home": "https://www.metro-online.pk/home",
+        "search": "https://www.metro-online.pk/search?q={query}"
       },
       "integration_risk": "medium"
+    },
+    {
+      "id": "imtiaz",
+      "name": "Imtiaz",
+      "slug": "imtiaz",
+      "website_url": "https://shop.imtiaz.com.pk",
+      "cities": [
+        "Karachi",
+        "Lahore",
+        "Islamabad",
+        "Rawalpindi",
+        "Faisalabad",
+        "Multan",
+        "Hyderabad",
+        "Peshawar"
+      ],
+      "platform": "Blink",
+      "scraping_method": "blink_menu_json",
+      "status": "connected",
+      "public_api": true,
+      "barcode_available": false,
+      "robots_url": "https://shop.imtiaz.com.pk/robots.txt",
+      "sitemap_url": "https://shop.imtiaz.com.pk/sitemap.xml",
+      "terms_url": "https://shop.imtiaz.com.pk/privacy-policy",
+      "notes": [
+        "Connected via public storefront /api/menu JSON (same payload the website loads)",
+        "No robots.txt published at connection time; avoids login/checkout paths",
+        "Prices are branch/delivery-area specific (default Karachi Express branch)"
+      ],
+      "endpoints": {
+        "menu": "https://shop.imtiaz.com.pk/api/menu",
+        "sitemap": "https://shop.imtiaz.com.pk/sitemap.xml",
+        "store": "https://shop.imtiaz.com.pk/"
+      },
+      "integration_risk": "medium"
+    },
+    {
+      "id": "carrefour",
+      "name": "Carrefour",
+      "slug": "carrefour",
+      "website_url": "https://www.carrefour.pk/mafpak/en",
+      "cities": ["Karachi", "Lahore", "Islamabad", "Faisalabad"],
+      "platform": "MAF",
+      "scraping_method": "maf_search_json",
+      "status": "connected",
+      "public_api": true,
+      "barcode_available": "unknown",
+      "robots_url": "https://www.carrefour.pk/robots.txt",
+      "sitemap_url": "https://www.carrefour.pk/sitemap.xml",
+      "terms_url": "https://www.carrefour.pk/mafpak/en",
+      "notes": [
+        "Uses public /api/v8/search storefront JSON with HTML fallback",
+        "Some networks receive empty/blocked responses (WAF); no bypass attempted",
+        "Prices are store-location specific (default Karachi coordinates)"
+      ],
+      "endpoints": {
+        "search_api": "https://www.carrefour.pk/api/v8/search",
+        "search": "https://www.carrefour.pk/mafpak/en/search?keyword={query}",
+        "home": "https://www.carrefour.pk/mafpak/en"
+      },
+      "integration_risk": "high"
     }
   ],
   "later_retailers": [
     { "id": "chase-up", "name": "Chase Up" },
     { "id": "panda", "name": "Panda" },
-    { "id": "csd", "name": "CSD" },
-    {
-      "id": "imtiaz",
-      "name": "Imtiaz",
-      "notes": [
-        "Homepage is a loading SPA; catalog likely needs JS",
-        "No public product JSON found"
-      ]
-    },
-    {
-      "id": "carrefour",
-      "name": "Carrefour",
-      "notes": [
-        "Storefront returned empty/blocked responses from this environment",
-        "Prices are store-location specific"
-      ]
-    }
+    { "id": "csd", "name": "CSD" }
   ]
 }

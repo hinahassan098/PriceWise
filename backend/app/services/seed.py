@@ -38,11 +38,18 @@ def seed(db: Session) -> None:
         retailer.platform = row.get("platform")
         retailer.scraping_method = row["scraping_method"]
         retailer.status = row.get("status") or "connected"
-        existing_cities = {city.city for city in retailer.cities}
-        for city in row.get("cities") or []:
-            city_name = city.split(" +")[0].replace("Nationwide shipping", "Nationwide")
-            if city_name not in existing_cities:
+        wanted_cities = {
+            city.split(" +")[0].replace("Nationwide shipping", "Nationwide").strip()
+            for city in (row.get("cities") or [])
+            if city and city.strip()
+        }
+        existing = {city.city: city for city in list(retailer.cities)}
+        for city_name in wanted_cities:
+            if city_name not in existing:
                 db.add(RetailerCity(retailer_id=row["id"], city=city_name))
+        for city_name, row_city in existing.items():
+            if city_name not in wanted_cities:
+                db.delete(row_city)
 
     # Hide retailers that are no longer in the connected registry.
     for retailer in db.scalars(select(Retailer)).all():
