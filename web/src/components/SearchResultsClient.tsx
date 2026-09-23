@@ -275,7 +275,9 @@ export function SearchResultsClient({ q, store, stock, city }: Props) {
   }, [q, store, inStock, cityFilter, stock, router]);
 
   const { flat, productResults } = useMemo(() => {
-    let nextFlat: StoreOffer[] = results?.all_store_prices || [];
+    let nextFlat: StoreOffer[] = (results?.all_store_prices || []).filter(
+      (o) => o.price != null && o.source !== "store_link",
+    );
     let nextProducts: SearchResult[] = results?.results || [];
     if (inStock === true) {
       nextFlat = nextFlat.filter((o) => o.availability === "in_stock");
@@ -387,25 +389,6 @@ export function SearchResultsClient({ q, store, stock, city }: Props) {
         </p>
       ) : null}
 
-      {!loading && results?.store_links?.length ? (
-        <div className="panel filter-bar mb-6 flex flex-wrap items-center gap-2 rounded-2xl p-4">
-          <span className="section-kicker mr-1">Search on</span>
-          {results.store_links
-            .filter((l) => ["naheed", "carrefour", "imtiaz"].includes(l.retailer_id))
-            .map((link) => (
-              <a
-                key={link.retailer_id}
-                href={link.url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl border border-[var(--line)] bg-white/80 px-3 py-1.5 text-sm font-medium text-[var(--accent-deep)] transition hover:border-[var(--accent-soft)] hover:bg-[rgba(243,197,211,0.35)]"
-              >
-                {link.retailer_name} ↗
-              </a>
-            ))}
-        </div>
-      ) : null}
-
       {!loading && results?.mode === "empty_city_store" ? (
         <p className="rounded-2xl border border-[var(--line)] bg-white/70 px-4 py-4 text-[var(--ink-soft)]">
           {store || "That store"} is not available in {cityFilter || "this city"}. Pick another
@@ -456,11 +439,7 @@ export function SearchResultsClient({ q, store, stock, city }: Props) {
                   </td>
                   <td className="px-4 py-3">{formatPkr(row.price)}</td>
                   <td className="px-4 py-3 text-sm">
-                    {row.source === "store_link"
-                      ? "Open store"
-                      : row.availability === "in_stock"
-                        ? "In stock"
-                        : "Out of stock"}
+                    {row.availability === "in_stock" ? "In stock" : "Out of stock"}
                   </td>
                   <td className="px-4 py-3">
                     <a
@@ -469,7 +448,7 @@ export function SearchResultsClient({ q, store, stock, city }: Props) {
                       rel="noreferrer"
                       className="text-[var(--accent)] underline"
                     >
-                      {row.source === "store_link" ? "Open" : "Buy"}
+                      Buy
                     </a>
                   </td>
                 </tr>
