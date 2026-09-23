@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, Suspense, useEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  KeyboardEvent,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { suggestProducts, type Suggestion } from "@/lib/api";
 import { CityPicker, normalizeCityParam, readStoredCity } from "@/components/CityPicker";
@@ -25,8 +32,10 @@ function SearchBoxInner({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [suggesting, setSuggesting] = useState(false);
-  const listRef = useRef<HTMLUListElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // After picking a suggestion, ignore the next suggest response so the menu stays closed.
+  const suppressSuggestRef = useRef(false);
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -43,21 +52,26 @@ function SearchBoxInner({
       return;
     }
 
+    if (suppressSuggestRef.current) {
+      return;
+    }
+
     const handle = window.setTimeout(() => {
+      if (suppressSuggestRef.current) return;
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       setSuggesting(true);
       suggestProducts(q, controller.signal)
         .then((data) => {
-          if (controller.signal.aborted) return;
-          setSuggestions(data.suggestions || []);
-          setOpen((data.suggestions || []).length > 0);
+          if (controller.signal.aborted || suppressSuggestRef.current) return;
+          const next = data.suggestions || [];
+          setSuggestions(next);
+          setOpen(next.length > 0);
           setActive(-1);
         })
         .catch((err) => {
           if (controller.signal.aborted || err?.name === "AbortError") return;
-          // Keep prior suggestions on soft failures to avoid flicker/lag feel.
         })
         .finally(() => {
           if (!controller.signal.aborted) setSuggesting(false);
@@ -72,6 +86,30 @@ function SearchBoxInner({
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  useEffect(() => {
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const root = rootRef.current;
+      if (!root || !open) return;
+      const target = event.target as Node | null;
+      if (target && !root.contains(target)) {
+        closeSuggestions();
+      }
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [open]);
+
+  function closeSuggestions() {
+    abortRef.current?.abort();
+    setOpen(false);
+    setActive(-1);
+    setSuggesting(false);
+  }
 
   function cityParam() {
     return normalizeCityParam(searchParams.get("city") || readStoredCity());
@@ -91,22 +129,33 @@ function SearchBoxInner({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    // Compare always searches the typed query — suggestions only fill the box.
     const q = query.trim();
     if (!q) return;
-    setOpen(false);
-    setActive(-1);
+    suppressSuggestRef.current = true;
+    setSuggestions([]);
+    closeSuggestions();
     router.push(buildSearchUrl(q));
   }
 
   /** Suggestions only complete the input — they never navigate or search. */
   function selectSuggestion(item: Suggestion) {
+    suppressSuggestRef.current = true;
+    abortRef.current?.abort();
     setQuery(item.query || item.label);
-    setOpen(false);
-    setActive(-1);
+    setSuggestions([]);
+    closeSuggestions();
+  }
+
+  function onQueryChange(value: string) {
+    suppressSuggestRef.current = false;
+    setQuery(value);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      closeSuggestions();
+      return;
+    }
     if (!open || suggestions.length === 0) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -114,81 +163,91 @@ function SearchBoxInner({
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActive((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
-    } else if (event.key === "Escape") {
-      setOpen(false);
-      setActive(-1);
     }
-    // Enter is handled by form submit → Compare searches. Suggestions never navigate.
   }
 
+  const showMenu = open && suggestions.length > 0;
+
   return (
-    <div className={`relative z-30 w-full ${size === "hero" ? "max-w-2xl" : "max-w-xl"}`}>
+    <div className={`w-full ${size === "hero" ? "max-w-2xl" : "max-w-xl"}`}>
       {showCity ? (
         <div className="mb-3">
           <CityPicker syncUrl={size === "compact"} variant={size === "hero" ? "hero" : "default"} />
         </div>
       ) : null}
-      <form onSubmit={onSubmit} className="panel search-field relative z-10 flex overflow-hidden rounded-2xl">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 180)}
-          onKeyDown={onKeyDown}
-          autoFocus={autofocus}
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={open && suggestions.length > 0}
-          aria-controls="search-suggestions"
-          aria-autocomplete="list"
-          placeholder='Search products… e.g. "Lays" or "Surf Excel"'
-          className={`w-full bg-transparent px-5 outline-none placeholder:text-[var(--ink-soft)] ${
-            size === "hero" ? "py-4 text-lg" : "py-3 text-base"
-          }`}
-          aria-label="Search products"
-        />
-        <button type="submit" className="btn-accent px-6 font-medium tracking-wide">
-          {suggesting ? "…" : "Compare"}
-        </button>
-      </form>
-      {open && suggestions.length > 0 ? (
-        <ul
-          id="search-suggestions"
-          ref={listRef}
-          role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[#fffafb] text-[var(--ink)]"
-          style={{
-            backgroundColor: "#fffafb",
-            boxShadow: "0 16px 36px rgba(42, 16, 24, 0.16)",
-          }}
+      <div ref={rootRef} className="relative z-30">
+        <form
+          onSubmit={onSubmit}
+          className="panel search-field relative z-10 flex overflow-hidden rounded-2xl"
         >
-          {suggestions.map((item, idx) => {
-            const selected = idx === active;
-            const rowClass = `flex w-full flex-col gap-0.5 border-b border-[var(--line)] px-4 py-3 text-left last:border-b-0 transition-colors ${
-              selected
-                ? "bg-[rgba(243,197,211,0.55)]"
-                : "bg-[#fffafb] hover:bg-[rgba(243,197,211,0.35)]"
-            }`;
-            return (
-              <li
-                key={`${item.source}-${item.variant_id ?? item.label}-${idx}`}
-                role="option"
-                aria-selected={selected}
-              >
-                <button
-                  type="button"
-                  className={rowClass}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setActive(idx)}
-                  onClick={() => selectSuggestion(item)}
+          <input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            onFocus={() => {
+              if (!suppressSuggestRef.current && suggestions.length > 0) setOpen(true);
+            }}
+            onBlur={() => {
+              window.setTimeout(() => {
+                if (!rootRef.current?.contains(document.activeElement)) {
+                  closeSuggestions();
+                }
+              }, 120);
+            }}
+            onKeyDown={onKeyDown}
+            autoFocus={autofocus}
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={showMenu}
+            aria-controls="search-suggestions"
+            aria-autocomplete="list"
+            placeholder='Search products… e.g. "Lays" or "Surf Excel"'
+            className={`w-full bg-transparent px-5 outline-none placeholder:text-[var(--ink-soft)] ${
+              size === "hero" ? "py-4 text-lg" : "py-3 text-base"
+            }`}
+            aria-label="Search products"
+          />
+          <button type="submit" className="btn-accent px-6 font-medium tracking-wide">
+            {suggesting ? "…" : "Compare"}
+          </button>
+        </form>
+        {showMenu ? (
+          <ul
+            id="search-suggestions"
+            role="listbox"
+            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[#fffafb] text-[var(--ink)]"
+            style={{
+              backgroundColor: "#fffafb",
+              boxShadow: "0 16px 36px rgba(42, 16, 24, 0.16)",
+            }}
+          >
+            {suggestions.map((item, idx) => {
+              const selected = idx === active;
+              const rowClass = `flex w-full flex-col gap-0.5 border-b border-[var(--line)] px-4 py-3 text-left last:border-b-0 transition-colors ${
+                selected
+                  ? "bg-[rgba(243,197,211,0.55)]"
+                  : "bg-[#fffafb] hover:bg-[rgba(243,197,211,0.35)]"
+              }`;
+              return (
+                <li
+                  key={`${item.source}-${item.variant_id ?? item.label}-${idx}`}
+                  role="option"
+                  aria-selected={selected}
                 >
-                  <SuggestionRow item={item} query={query} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+                  <button
+                    type="button"
+                    className={rowClass}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActive(idx)}
+                    onClick={() => selectSuggestion(item)}
+                  >
+                    <SuggestionRow item={item} query={query} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }
