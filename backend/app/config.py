@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     city: str = "Karachi"
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'hina.db').as_posix()}"
     cors_origins: str = (
-        "http://localhost:3000,http://localhost:3020,"
+        "http://localhost:3000,http://localhost:3001,http://localhost:3020,"
+        "http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3020,"
         "https://pricewise-78on.onrender.com,"
         "https://pricewise-web.onrender.com"
     )

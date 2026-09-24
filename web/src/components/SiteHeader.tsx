@@ -22,20 +22,6 @@ export function SiteHeader() {
             PriceWise
           </span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm text-[var(--ink-soft)] md:gap-2">
-          <Link
-            href="/search?q=surf%20excel"
-            className="rounded-xl px-3 py-1.5 transition hover:bg-[rgba(243,197,211,0.35)] hover:text-[var(--accent)]"
-          >
-            Search
-          </Link>
-          <Link
-            href="/admin"
-            className="rounded-xl px-3 py-1.5 transition hover:bg-[rgba(243,197,211,0.35)] hover:text-[var(--accent)]"
-          >
-            Admin
-          </Link>
-        </nav>
       </div>
     </header>
   );

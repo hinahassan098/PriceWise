@@ -28,7 +28,7 @@ Admin collect is locked until you set a shared secret:
 4. Confirm web has `NEXT_PUBLIC_API_URL=https://pricewise-api-dauj.onrender.com`.
 5. Save (auto-redeploy).
 
-Without the key, unauthenticated collect returns **503** (safe). With the key, Admin Collect works via a server-side proxy.
+Without the key, unauthenticated collect returns **503** (safe). With the key configured, open `/admin`, paste the key into **Admin API key**, then run Collect. The browser must send `X-Admin-Key`; anonymous `POST /api/admin/collect-all` returns **401**.
 
 ## Local development
 

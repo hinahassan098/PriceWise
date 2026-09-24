@@ -15,9 +15,9 @@ const body = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "PriceWise — Compare grocery prices in Pakistan",
+  title: "PriceWise — Know the Price. Own the Choice",
   description:
-    "Search a product, compare verified prices across Pakistani retailers, and buy from the cheapest store.",
+    "Compare available prices across Pakistan and choose where you want to shop.",
   icons: {
     icon: [
       { url: "/icon.png", type: "image/png", sizes: "512x512" },

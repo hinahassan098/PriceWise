@@ -61,37 +61,22 @@ export default function HomePage() {
             PriceWise
           </p>
           <h1 className="max-w-xl text-2xl font-normal leading-snug text-[var(--hero-fg)] md:text-3xl">
-            Compare prices across Pakistan
+            Know the Price. Own the Choice.
           </h1>
           <p className="mt-4 max-w-lg text-base leading-relaxed text-[var(--hero-muted)] md:text-lg">
-            Search a product, see verified timestamps from retailers, and open
-            the cheapest store to buy.
+            Compare available prices across Pakistan and choose where you want to
+            shop.
           </p>
           <div className="mt-10 text-[var(--ink)]">
-            <SearchBox autofocus size="hero" />
+            <SearchBox
+              autofocus
+              size="hero"
+              placeholder="What do you want to buy?"
+              buttonLabel="Show Prices"
+            />
           </div>
-          <p className="pointer-events-none mt-5 text-sm text-[var(--hero-muted)]">
-            Try{" "}
-            <Link
-              href="/search?q=brite%201kg"
-              className="pointer-events-auto underline decoration-[var(--blush)] underline-offset-4 transition hover:text-white"
-            >
-              Brite 1kg
-            </Link>
-            ,{" "}
-            <Link
-              href="/search?q=lays"
-              className="pointer-events-auto underline decoration-[var(--blush)] underline-offset-4 transition hover:text-white"
-            >
-              Lays
-            </Link>{" "}
-            or{" "}
-            <Link
-              href="/search?q=Surf%20Excel%201kg"
-              className="pointer-events-auto underline decoration-[var(--blush)] underline-offset-4 transition hover:text-white"
-            >
-              Surf Excel 1kg
-            </Link>
+          <p className="mt-5 text-sm text-[var(--hero-muted)]">
+            See the difference before you buy.
           </p>
         </div>
       </section>

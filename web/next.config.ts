@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Allow both localhost and 127.0.0.1 in dev (HMR / browser origin mismatch).
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   env: {
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL ||

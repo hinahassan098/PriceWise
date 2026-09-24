@@ -17,6 +17,8 @@ type Props = {
   autofocus?: boolean;
   size?: "hero" | "compact";
   showCity?: boolean;
+  placeholder?: string;
+  buttonLabel?: string;
 };
 
 function SearchBoxInner({
@@ -24,6 +26,8 @@ function SearchBoxInner({
   autofocus = false,
   size = "hero",
   showCity = true,
+  placeholder = 'Search products… e.g. "Lays" or "Surf Excel"',
+  buttonLabel = "Compare",
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -200,14 +204,14 @@ function SearchBoxInner({
             aria-expanded={showMenu}
             aria-controls="search-suggestions"
             aria-autocomplete="list"
-            placeholder='Search products… e.g. "Lays" or "Surf Excel"'
+            placeholder={placeholder}
             className={`w-full bg-transparent px-5 outline-none placeholder:text-[var(--ink-soft)] ${
               size === "hero" ? "py-4 text-lg" : "py-3 text-base"
             }`}
             aria-label="Search products"
           />
           <button type="submit" className="btn-accent px-6 font-medium tracking-wide">
-            {suggesting ? "…" : "Compare"}
+            {suggesting ? "…" : buttonLabel}
           </button>
         </form>
         {showMenu ? (
