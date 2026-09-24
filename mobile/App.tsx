@@ -43,12 +43,6 @@ const COLORS = {
   danger: "#8a1f3a",
 };
 
-const EXAMPLES = [
-  { label: "Brite 1kg", q: "brite 1kg" },
-  { label: "Lays", q: "lays" },
-  { label: "Surf Excel 1kg", q: "Surf Excel 1kg" },
-];
-
 const CATEGORIES = [
   { label: "Grocery", q: "atta" },
   { label: "Beverages", q: "coke" },
@@ -166,11 +160,11 @@ export default function App() {
                   />
                   <Text style={styles.brand}>PriceWise</Text>
                   <Text style={styles.headline}>
-                    Compare prices across Pakistan
+                    Know the Price. Own the Choice.
                   </Text>
                   <Text style={styles.heroCopy}>
-                    Search a product, see verified timestamps from retailers,
-                    and open the cheapest store to buy.
+                    Compare available prices across Pakistan and choose where
+                    you want to shop.
                   </Text>
 
                   <Text style={styles.cityLabel}>City</Text>
@@ -205,7 +199,7 @@ export default function App() {
                     <TextInput
                       value={query}
                       onChangeText={setQuery}
-                      placeholder='Search products… e.g. "Surf Excel 1kg"'
+                      placeholder="What do you want to buy?"
                       placeholderTextColor={COLORS.inkSoft}
                       style={styles.input}
                       returnKeyType="search"
@@ -221,7 +215,7 @@ export default function App() {
                       disabled={loading}
                     >
                       <Text style={styles.buttonText}>
-                        {loading ? "…" : "Compare"}
+                        {loading ? "…" : "Show Prices"}
                       </Text>
                     </Pressable>
                   </View>
@@ -232,14 +226,18 @@ export default function App() {
                         <Pressable
                           key={`${item.label}-${idx}`}
                           style={styles.suggestRow}
-                          onPress={() => void runSearch(item.query || item.label)}
+                          onPress={() => {
+                            setQuery(item.query || item.label);
+                            setShowSuggestions(false);
+                          }}
                         >
                           <Text style={styles.suggestLabel} numberOfLines={1}>
                             {item.label}
                           </Text>
                           <Text style={styles.suggestMeta} numberOfLines={1}>
-                            {item.size_label}
-                            {item.brand ? ` · ${item.brand}` : ""}
+                            {[item.size_label, item.brand]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </Text>
                         </Pressable>
                       ))}
@@ -247,18 +245,7 @@ export default function App() {
                   ) : null}
 
                   <Text style={styles.tryLabel}>
-                    Try{" "}
-                    {EXAMPLES.map((ex, i) => (
-                      <Text key={ex.q}>
-                        {i > 0 ? (i === EXAMPLES.length - 1 ? " or " : ", ") : ""}
-                        <Text
-                          style={styles.tryLink}
-                          onPress={() => void runSearch(ex.q)}
-                        >
-                          {ex.label}
-                        </Text>
-                      </Text>
-                    ))}
+                    See the difference before you buy.
                   </Text>
                 </View>
               </LinearGradient>
@@ -604,10 +591,6 @@ const styles = StyleSheet.create({
     color: COLORS.heroMuted,
     fontSize: 13,
     lineHeight: 20,
-  },
-  tryLink: {
-    color: COLORS.blush,
-    textDecorationLine: "underline",
   },
   categories: {
     marginTop: 28,
