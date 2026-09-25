@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   Linking,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -14,6 +15,9 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+
+const STATUS_BAR_HEIGHT =
+  Platform.OS === "android" ? StatusBar.currentHeight ?? 28 : 0;
 import {
   formatPkr,
   getCities,
@@ -91,9 +95,10 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const runSearch = useCallback(async (raw: string) => {
+  const runSearch = useCallback(async (raw: string, cityOverride?: string) => {
     const q = raw.trim();
     if (!q) return;
+    const cityFilter = cityOverride ?? city;
     setQuery(q);
     setShowSuggestions(false);
     setLoading(true);
@@ -102,7 +107,7 @@ export default function App() {
     try {
       await wakeApi();
       const data = await searchProducts(q, {
-        city: city === "all" ? undefined : city,
+        city: cityFilter === "all" ? undefined : cityFilter,
       });
       setResults(data.results || []);
       setFlat(data.all_store_prices || []);
@@ -131,8 +136,12 @@ export default function App() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.accentDeep} />
-      <SafeAreaView style={styles.safeTop} />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={COLORS.accentDeep}
+        translucent={false}
+      />
+      <View style={styles.statusBarFill} />
       <SafeAreaView style={styles.safe}>
         <FlatList
           data={showHome ? [] : results}
@@ -162,38 +171,6 @@ export default function App() {
                   <Text style={styles.headline}>
                     Know the Price. Own the Choice.
                   </Text>
-                  <Text style={styles.heroCopy}>
-                    Compare available prices across Pakistan and choose where
-                    you want to shop.
-                  </Text>
-
-                  <Text style={styles.cityLabel}>City</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.cityRow}
-                  >
-                    {cities.map((c) => {
-                      const value = c.nationwide ? "all" : c.name;
-                      const active = city === value;
-                      return (
-                        <Pressable
-                          key={c.id}
-                          style={[styles.cityChip, active && styles.cityChipActive]}
-                          onPress={() => setCity(value)}
-                        >
-                          <Text
-                            style={[
-                              styles.cityChipText,
-                              active && styles.cityChipTextActive,
-                            ]}
-                          >
-                            {c.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
 
                   <View style={styles.searchBox}>
                     <TextInput
@@ -204,7 +181,9 @@ export default function App() {
                       style={styles.input}
                       returnKeyType="search"
                       onSubmitEditing={onSearch}
-                      onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                      onFocus={() =>
+                        suggestions.length > 0 && setShowSuggestions(true)
+                      }
                     />
                     <Pressable
                       style={({ pressed }) => [
@@ -243,20 +222,13 @@ export default function App() {
                       ))}
                     </View>
                   ) : null}
-
-                  <Text style={styles.tryLabel}>
-                    See the difference before you buy.
-                  </Text>
                 </View>
               </LinearGradient>
 
               {showHome ? (
                 <View style={styles.categories}>
+                  <Text style={styles.sectionKicker}>Browse</Text>
                   <Text style={styles.sectionBrand}>Popular categories</Text>
-                  <Text style={styles.sectionSub}>
-                    Packaged grocery first. Fresh produce and loose items come
-                    later.
-                  </Text>
                   <View style={styles.categoryList}>
                     {CATEGORIES.map((cat) => (
                       <Pressable
@@ -282,6 +254,39 @@ export default function App() {
                     for “{query.trim()}” · {cityLabel}
                     {loading ? " · searching live stores…" : ""}
                   </Text>
+                  <Text style={styles.cityLabelDark}>City</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.cityRow}
+                  >
+                    {cities.map((c) => {
+                      const value = c.nationwide ? "all" : c.name;
+                      const active = city === value;
+                      return (
+                        <Pressable
+                          key={c.id}
+                          style={[
+                            styles.cityChipLight,
+                            active && styles.cityChipLightActive,
+                          ]}
+                          onPress={() => {
+                            setCity(value);
+                            void runSearch(query, value);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.cityChipLightText,
+                              active && styles.cityChipLightTextActive,
+                            ]}
+                          >
+                            {c.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
                 </View>
               ) : null}
 
@@ -444,22 +449,20 @@ export default function App() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bg },
-  safeTop: { backgroundColor: COLORS.accentDeep },
+  statusBarFill: {
+    height: STATUS_BAR_HEIGHT,
+    backgroundColor: COLORS.accentDeep,
+  },
   safe: { flex: 1, backgroundColor: COLORS.bg },
   list: { paddingBottom: 40 },
   hero: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 28,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,200,214,0.25)",
-    paddingHorizontal: 22,
+    overflow: 'hidden',
+    paddingHorizontal: 24,
     paddingTop: 28,
-    paddingBottom: 26,
+    paddingBottom: 32,
   },
   orb: {
-    position: "absolute",
+    position: 'absolute',
     borderRadius: 999,
     opacity: 0.55,
   },
@@ -468,80 +471,75 @@ const styles = StyleSheet.create({
     height: 180,
     top: -40,
     right: -20,
-    backgroundColor: "rgba(243,197,211,0.35)",
+    backgroundColor: 'rgba(243,197,211,0.35)',
   },
   orbB: {
     width: 140,
     height: 140,
     bottom: 20,
     left: -30,
-    backgroundColor: "rgba(155,45,74,0.45)",
+    backgroundColor: 'rgba(155,45,74,0.45)',
   },
-  heroContent: { position: "relative", zIndex: 1 },
+  heroContent: { position: 'relative', zIndex: 1 },
   logoMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginBottom: 14,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginBottom: 16,
   },
   brand: {
-    fontFamily: "serif",
-    fontSize: 42,
-    fontWeight: "600",
+    fontFamily: 'serif',
+    fontSize: 44,
+    fontWeight: '600',
     color: COLORS.heroFg,
     letterSpacing: -1,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   headline: {
-    fontSize: 22,
-    fontWeight: "400",
+    fontSize: 20,
+    fontWeight: '400',
     color: COLORS.heroFg,
     lineHeight: 28,
-    maxWidth: 320,
-  },
-  heroCopy: {
-    marginTop: 10,
-    fontSize: 15,
-    lineHeight: 22,
-    color: COLORS.heroMuted,
-    maxWidth: 340,
-  },
-  cityLabel: {
-    marginTop: 16,
+    maxWidth: 300,
     marginBottom: 8,
-    color: COLORS.heroMuted,
-    fontSize: 13,
-    fontWeight: "600",
   },
   cityRow: {
     gap: 8,
     paddingBottom: 4,
+    marginTop: 8,
   },
-  cityChip: {
+  cityLabelDark: {
+    marginTop: 14,
+    marginBottom: 6,
+    color: COLORS.inkSoft,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cityChipLight: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(255,200,214,0.45)",
+    borderColor: COLORS.line,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: '#fff',
   },
-  cityChipActive: {
+  cityChipLightActive: {
     backgroundColor: COLORS.blush,
     borderColor: COLORS.blush,
   },
-  cityChipText: {
-    color: COLORS.heroMuted,
+  cityChipLightText: {
+    color: COLORS.inkSoft,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: '600',
   },
-  cityChipTextActive: {
+  cityChipLightTextActive: {
     color: COLORS.accentDeep,
   },
   searchBox: {
-    marginTop: 14,
-    flexDirection: "row",
+    marginTop: 22,
+    flexDirection: 'row',
     gap: 8,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 6,
     borderWidth: 1,
@@ -549,11 +547,11 @@ const styles = StyleSheet.create({
   },
   suggestPanel: {
     marginTop: 8,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.line,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   suggestRow: {
     paddingHorizontal: 12,
@@ -563,7 +561,7 @@ const styles = StyleSheet.create({
   },
   suggestLabel: {
     color: COLORS.ink,
-    fontWeight: "600",
+    fontWeight: '600',
     fontSize: 14,
   },
   suggestMeta: {
@@ -582,42 +580,38 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
     borderRadius: 12,
     paddingHorizontal: 16,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
   buttonPressed: { backgroundColor: COLORS.accentDeep },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-  tryLabel: {
-    marginTop: 14,
-    color: COLORS.heroMuted,
-    fontSize: 13,
-    lineHeight: 20,
-  },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   categories: {
     marginTop: 28,
     paddingHorizontal: 20,
   },
+  sectionKicker: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: COLORS.accentSoft,
+    marginBottom: 6,
+  },
   sectionBrand: {
-    fontFamily: "serif",
+    fontFamily: 'serif',
     fontSize: 28,
-    fontWeight: "600",
+    fontWeight: '600',
     color: COLORS.accentDeep,
     letterSpacing: -0.5,
   },
-  sectionSub: {
-    marginTop: 6,
-    color: COLORS.inkSoft,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   categoryList: {
-    marginTop: 12,
+    marginTop: 14,
     borderTopWidth: 1,
     borderTopColor: COLORS.line,
   },
   categoryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.line,
@@ -637,9 +631,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resultsTitle: {
-    fontFamily: "serif",
+    fontFamily: 'serif',
     fontSize: 26,
-    fontWeight: "600",
+    fontWeight: '600',
     color: COLORS.accentDeep,
   },
   resultsMeta: {
@@ -648,14 +642,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   center: {
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: 28,
     paddingHorizontal: 24,
     gap: 12,
   },
   muted: {
     color: COLORS.inkSoft,
-    textAlign: "center",
+    textAlign: 'center',
     lineHeight: 20,
   },
   mutedEmpty: {
@@ -670,10 +664,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.accentSoft,
-    backgroundColor: "#fff5f8",
+    backgroundColor: '#fff5f8',
   },
   errorText: { color: COLORS.danger, marginBottom: 6 },
-  retry: { color: COLORS.accent, fontWeight: "700" },
+  retry: { color: COLORS.accent, fontWeight: '700' },
   panel: {
     marginHorizontal: 16,
     marginTop: 8,
@@ -685,9 +679,9 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   panelTitle: {
-    fontFamily: "serif",
+    fontFamily: 'serif',
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: '600',
     color: COLORS.accentDeep,
   },
   panelSub: {
@@ -701,21 +695,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   offerRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.line,
   },
   cheapestRow: { backgroundColor: COLORS.cheapestBg },
   offerMain: { flex: 1, paddingRight: 8 },
-  offerStore: { fontWeight: "700", color: COLORS.ink },
+  offerStore: { fontWeight: '700', color: COLORS.ink },
   offerName: { color: COLORS.inkSoft, fontSize: 12, marginTop: 2 },
-  offerRight: { alignItems: "flex-end", gap: 2 },
-  offerPrice: { fontWeight: "700", color: COLORS.accent },
+  offerRight: { alignItems: 'flex-end', gap: 2 },
+  offerPrice: { fontWeight: '700', color: COLORS.accent },
   buyLink: {
     color: COLORS.accent,
-    textDecorationLine: "underline",
+    textDecorationLine: 'underline',
     fontSize: 12,
   },
   card: {
@@ -727,25 +721,25 @@ const styles = StyleSheet.create({
     borderColor: COLORS.line,
     padding: 14,
   },
-  cardTop: { flexDirection: "row", gap: 12 },
+  cardTop: { flexDirection: 'row', gap: 12 },
   image: {
     width: 72,
     height: 72,
     borderRadius: 12,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
   },
   imagePlaceholder: { backgroundColor: COLORS.blush },
   cardBody: { flex: 1 },
-  productName: { fontSize: 17, fontWeight: "600", color: COLORS.ink },
+  productName: { fontSize: 17, fontWeight: '600', color: COLORS.ink },
   size: { marginTop: 2, color: COLORS.inkSoft, fontSize: 13 },
   stores: { marginTop: 6, fontSize: 12, color: COLORS.accentDeep },
-  priceCol: { alignItems: "flex-end", minWidth: 88 },
+  priceCol: { alignItems: 'flex-end', minWidth: 88 },
   cheapestLabel: { fontSize: 12, color: COLORS.accent },
-  price: { fontSize: 20, fontWeight: "700", color: COLORS.ink },
+  price: { fontSize: 20, fontWeight: '700', color: COLORS.ink },
   buy: {
     marginTop: 4,
     color: COLORS.accent,
-    textDecorationLine: "underline",
+    textDecorationLine: 'underline',
     fontSize: 12,
   },
   offerTable: {
@@ -753,26 +747,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.line,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   miniOffer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.line,
     gap: 8,
   },
-  miniStore: { flex: 1, color: COLORS.ink, fontWeight: "600" },
-  miniPrice: { fontWeight: "700", color: COLORS.accentDeep },
+  miniStore: { flex: 1, color: COLORS.ink, fontWeight: '600' },
+  miniPrice: { fontWeight: '700', color: COLORS.accentDeep },
   backHome: {
-    alignSelf: "center",
+    alignSelf: 'center',
     marginTop: 8,
     marginBottom: 20,
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
-  backHomeText: { color: COLORS.accent, fontWeight: "600", fontSize: 15 },
+  backHomeText: { color: COLORS.accent, fontWeight: '600', fontSize: 15 },
 });
+
